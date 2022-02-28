@@ -1,0 +1,12 @@
+.root{
+	-fx-background-color: linear-gradient(to left, #4AF, #169);
+}
+
+#primaryLabel, #secondaryLabel{
+	-fx-font-size: 20px;
+	-fx-text-fill: #FFF;
+}
+
+#dragOverComponent{
+	-fx-background-color: #EEE;
+}
