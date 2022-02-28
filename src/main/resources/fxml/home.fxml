@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.HBox?>
+
+<BorderPane minHeight="-Infinity" minWidth="-Infinity" prefHeight="400.0" prefWidth="600.0" xmlns="http://javafx.com/javafx/8.0.171" xmlns:fx="http://javafx.com/fxml/1" fx:controller="org.sharemolangapp.smlapp.controller.HomeController">
+   <center>
+      <HBox alignment="CENTER" minHeight="-Infinity" minWidth="-Infinity" prefHeight="100.0" prefWidth="200.0">
+         <children>
+            <Button fx:id="homeSendButton" minHeight="-Infinity" minWidth="-Infinity" mnemonicParsing="false" onAction="#handleHomeSendButton" prefHeight="100.0" prefWidth="120.0" stylesheets="@../css/button.css" text="Send">
+               <HBox.margin>
+                  <Insets bottom="20.0" left="20.0" right="20.0" top="20.0" />
+               </HBox.margin>
+            </Button>
+            <Button fx:id="homeReceiveButton" minHeight="-Infinity" minWidth="-Infinity" mnemonicParsing="false" onAction="#handleHomeReceiveButton" prefHeight="100.0" prefWidth="120.0" stylesheets="@../css/button.css" text="Receive">
+               <HBox.margin>
+                  <Insets bottom="20.0" left="20.0" right="20.0" top="20.0" />
+               </HBox.margin>
+            </Button>
+         </children>
+         <BorderPane.margin>
+            <Insets />
+         </BorderPane.margin>
+      </HBox>
+   </center>
+</BorderPane>
