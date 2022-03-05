@@ -5,9 +5,9 @@
 <?import javafx.scene.layout.BorderPane?>
 <?import javafx.scene.layout.HBox?>
 
-<BorderPane minHeight="-Infinity" minWidth="-Infinity" prefHeight="400.0" prefWidth="600.0" xmlns="http://javafx.com/javafx/8.0.171" xmlns:fx="http://javafx.com/fxml/1" fx:controller="org.sharemolangapp.smlapp.controller.HomeController">
+<BorderPane prefHeight="580.0" prefWidth="700.0" xmlns="http://javafx.com/javafx/8.0.171" xmlns:fx="http://javafx.com/fxml/1" fx:controller="org.sharemolangapp.smlapp.controller.HomeController">
    <center>
-      <HBox alignment="CENTER" minHeight="-Infinity" minWidth="-Infinity" prefHeight="100.0" prefWidth="200.0">
+      <HBox alignment="CENTER">
          <children>
             <Button fx:id="homeSendButton" minHeight="-Infinity" minWidth="-Infinity" mnemonicParsing="false" onAction="#handleHomeSendButton" prefHeight="100.0" prefWidth="120.0" stylesheets="@../css/button.css" text="Send">
                <HBox.margin>

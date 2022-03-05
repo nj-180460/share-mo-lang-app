@@ -8,19 +8,22 @@
 <?import javafx.scene.control.SplitPane?>
 <?import javafx.scene.layout.BorderPane?>
 <?import javafx.scene.layout.FlowPane?>
-<?import javafx.scene.layout.Region?>
 <?import javafx.scene.layout.VBox?>
 
-<BorderPane minHeight="-Infinity" minWidth="-Infinity" prefHeight="550.0" prefWidth="661.0" xmlns="http://javafx.com/javafx/8.0.171" xmlns:fx="http://javafx.com/fxml/1" fx:controller="org.sharemolangapp.smlapp.controller.SenderController">
+<BorderPane xmlns="http://javafx.com/javafx/8.0.171" xmlns:fx="http://javafx.com/fxml/1" fx:controller="org.sharemolangapp.smlapp.controller.SenderController">
    <bottom>
-      <FlowPane alignment="CENTER" BorderPane.alignment="CENTER">
-         <children>
-            <Button fx:id="sendFilesButton" alignment="CENTER" mnemonicParsing="false" onAction="#handleSendFiles" prefHeight="30.0" prefWidth="150.0" stylesheets="@../css/button.css" text="Send file/s" />
-         </children>
+      <VBox fx:id="bottomPane" BorderPane.alignment="CENTER">
          <BorderPane.margin>
             <Insets bottom="10.0" top="10.0" />
          </BorderPane.margin>
-      </FlowPane>
+         <children>
+            <FlowPane alignment="CENTER">
+               <children>
+                  <Button fx:id="sendFilesButton" alignment="CENTER" mnemonicParsing="false" onAction="#handleSendFiles" prefHeight="30.0" prefWidth="150.0" stylesheets="@../css/button.css" text="Send file/s" />
+               </children>
+            </FlowPane>
+         </children>
+      </VBox>
    </bottom>
    <padding>
       <Insets bottom="10.0" left="10.0" right="10.0" top="10.0" />
@@ -34,16 +37,20 @@
             <Button fx:id="backHomeButton" mnemonicParsing="false" onAction="#handleBackHome" text="Back" />
             <FlowPane alignment="CENTER">
                <children>
-                  <Button fx:id="uploadFilesButton" alignment="CENTER" mnemonicParsing="false" onAction="#handleUploadFiles" prefHeight="30.0" prefWidth="150.0" stylesheets="@../css/button.css" text="Upload File/s" />
+                  <Button fx:id="uploadFilesButton" alignment="CENTER" mnemonicParsing="false" onAction="#handleUploadFiles" prefHeight="30.0" prefWidth="150.0" stylesheets="@../css/button.css" text="Browse" />
                </children>
             </FlowPane>
          </children>
       </VBox>
    </top>
    <center>
-      <SplitPane dividerPositions="0.6353677621283255, 0.8200312989045383" prefHeight="399.0" prefWidth="267.0" BorderPane.alignment="CENTER">
+      <SplitPane dividerPositions="0.6353677621283255, 0.5" prefHeight="399.0" prefWidth="267.0" BorderPane.alignment="CENTER">
          <items>
-            <Region fx:id="dragOverComponent" minHeight="-Infinity" minWidth="-Infinity" prefHeight="400.0" prefWidth="355.0" stylesheets="@../css/root.css" />
+            <BorderPane fx:id="dragOverComponent" onDragDropped="#handleDragDropped" onDragOver="#handleDragOver" prefHeight="200.0" prefWidth="200.0" stylesheets="@../css/root.css">
+               <center>
+                  <Label fx:id="labeldropFilesHere" stylesheets="@../css/root.css" text="Drop files here" BorderPane.alignment="CENTER" />
+               </center>
+            </BorderPane>
             <VBox>
                <children>
                   <Label text="Queue">

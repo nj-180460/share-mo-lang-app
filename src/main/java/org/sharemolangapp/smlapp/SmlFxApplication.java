@@ -9,6 +9,7 @@ import javafx.application.Platform;
 import javafx.stage.Stage;
 
 
+
 public class SmlFxApplication extends Application{
 
 	private ConfigurableApplicationContext applicationContext;

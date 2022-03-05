@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.util.LinkedHashMap;
 
 import org.sharemolangapp.smlapp.SmlFxApplication.StageReadyEvent;
-import org.sharemolangapp.smlapp.controller.SenderController;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationListener;
 import org.springframework.core.io.Resource;
@@ -36,6 +35,8 @@ public class StageInitializer implements ApplicationListener<StageReadyEvent>{
 	@Override
 	public void onApplicationEvent(StageReadyEvent event) {
 		Stage stage = event.getStage();
+		stage.centerOnScreen();
+		
 		try {
 			setupStage(stage);
 		} catch (IOException e) {
@@ -45,8 +46,8 @@ public class StageInitializer implements ApplicationListener<StageReadyEvent>{
 	
 	
 	private void setupStage(Stage stage) throws IOException {
-		stage.setMinHeight(580);
-    	stage.setMinWidth(700);
+//		stage.setMinHeight(580);
+//    	stage.setMinWidth(700);
         stage.setTitle(appTitle);
         
         RootManager rootManager = RootManager.getRootManager();
@@ -62,50 +63,56 @@ public class StageInitializer implements ApplicationListener<StageReadyEvent>{
 	}
 	
 	
-	public static class RootManager<T> {
+	public static class RootManager {
 		
 		public static final String FXML_HOME = "home";
 		public static final String FXML_SENDER = "sender";
 		public static final String FXML_RECEIVER = "receiver";
 		
-		private static RootManager<?> rootManager;
+		private static RootManager rootManager;
 		private static final LinkedHashMap<String, Resource> registeredResources = new LinkedHashMap<>(); 
 		
 		private FXMLLoader fxmlLoader;
+		private Parent parent;
 		
 		private RootManager() {
 			
 		}
 		
-		public static RootManager<?> getRootManager() {
-			return rootManager != null ? rootManager : new RootManager<Object>(); 
+		public static RootManager getRootManager() {
+			return rootManager != null ? rootManager : new RootManager(); 
 		}
 		
 		public void registerResource(String keyName, Resource resource) {
 			registeredResources.put(keyName, resource);
 		}
 		
-		private Parent loadFXML(Resource resource) throws IOException {
+		public Parent loadFXML(Resource resource) throws IOException {
 //			FXMLLoader fxmlLoader = new FXMLLoader(StageInitializer.class.getResource("fxml/"+fxml + ".fxml"));
 			fxmlLoader = new FXMLLoader(resource.getURL());
-			return fxmlLoader.load();
+			return (parent = fxmlLoader.load());
 		}
 		
-		public T getController() {
-			return fxmlLoader.getController();
+		public LinkedHashMap<String, Resource> getRegisteredResources(){
+			return registeredResources;
 		}
 		
-		public void setRoot(Resource resource) throws IOException {
-	        scene.setRoot(loadFXML(resource));
-	    }
-		
-		public void setRoot(String keyName) throws IOException {
-	        scene.setRoot(loadFXML(registeredResources.get(keyName)));
-	    }
-		
-		public void loadFxml() {
-			
+		public Parent getParent() {
+			return parent;
 		}
+		
+		public FXMLLoader getFXMLLoader() {
+			return fxmlLoader;
+		}
+		
+//		private void setRoot(Resource resource) throws IOException {
+//	        scene.setRoot(loadFXML(resource));
+//	    }
+//		
+//		private void setRoot(String keyName) throws IOException {
+//	        scene.setRoot(loadFXML(registeredResources.get(keyName)));
+//	    }
+		
 		
 	}
 }
