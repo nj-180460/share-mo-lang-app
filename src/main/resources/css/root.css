@@ -7,6 +7,11 @@
 	-fx-text-fill: #FFF;
 }
 
+#labeldropFilesHere{
+	-fx-font-size: 20px;
+	-fx-text-fill: #555;
+}
+
 #dragOverComponent{
-	-fx-background-color: #EEE;
+	-fx-background-color: #DEF;
 }

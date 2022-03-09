@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.FlowPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+
+<BorderPane xmlns="http://javafx.com/javafx/8.0.171" xmlns:fx="http://javafx.com/fxml/1" fx:controller="org.sharemolangapp.smlapp.sender.ConnectionProperties">
+   <bottom>
+      <FlowPane alignment="CENTER" hgap="10.0" vgap="10.0" BorderPane.alignment="CENTER">
+         <children>
+            <Button fx:id="disconnectButton" mnemonicParsing="false" onAction="#handleDisconnect" text="Disconnect" />
+            <Button fx:id="reconnectButton" mnemonicParsing="false" onAction="#handleReconnect" text="Reconnect" />
+            <Button fx:id="newConnectionButton" mnemonicParsing="false" onAction="#handleNewConnection" text="New Connection" />
+         </children>
+         <BorderPane.margin>
+            <Insets />
+         </BorderPane.margin>
+      </FlowPane>
+   </bottom>
+   <padding>
+      <Insets bottom="30.0" left="30.0" right="30.0" top="30.0" />
+   </padding>
+   <center>
+      <HBox prefHeight="100.0" prefWidth="200.0" BorderPane.alignment="CENTER">
+         <children>
+            <VBox minWidth="-Infinity" prefWidth="150.0">
+               <children>
+                  <Label text="Server Name:" />
+                  <Label text="Host Address:" />
+                  <Label text="Status:" />
+               </children>
+            </VBox>
+            <VBox>
+               <children>
+                  <Label fx:id="labelServerName" VBox.vgrow="ALWAYS" />
+                  <Label fx:id="labelHostAddress" VBox.vgrow="ALWAYS" />
+                  <Label fx:id="labelServerStatus" VBox.vgrow="ALWAYS" />
+               </children>
+            </VBox>
+         </children>
+      </HBox>
+   </center>
+</BorderPane>
