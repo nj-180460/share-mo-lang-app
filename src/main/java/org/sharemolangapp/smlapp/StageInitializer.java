@@ -27,6 +27,12 @@ public class StageInitializer implements ApplicationListener<StageReadyEvent>{
 	private Resource senderResource;
 	@Value("classpath:/fxml/receiver.fxml")
 	private Resource receiverResource;
+	@Value("classpath:/fxml/connectionPropertiesDialog.fxml")
+	private Resource connectionPropertiesDialog;
+	@Value("classpath:/fxml/manageConnection.fxml")
+	private Resource manageConnection;
+	@Value("classpath:/fxml/generalUseBorderPane.fxml")
+	private Resource generalUseBorderPane;
 	
 	public StageInitializer(@Value("${spring.application.ui.title}") String appTitle) {
 		this.appTitle = appTitle;
@@ -54,6 +60,9 @@ public class StageInitializer implements ApplicationListener<StageReadyEvent>{
         rootManager.registerResource(RootManager.FXML_HOME, homeResource);
         rootManager.registerResource(RootManager.FXML_SENDER, senderResource);
         rootManager.registerResource(RootManager.FXML_RECEIVER, receiverResource);
+        rootManager.registerResource(RootManager.FXML_CONNECTION_PROPERTIES_DIALOG, connectionPropertiesDialog);
+        rootManager.registerResource(RootManager.FXML_MANAGE_CONNECTION, manageConnection);
+        rootManager.registerResource(RootManager.FXML_GENERAL_USER_BORDERPANE, generalUseBorderPane);
         
         scene = new Scene(rootManager.loadFXML(homeResource));
         stage.setScene(scene);
@@ -68,6 +77,9 @@ public class StageInitializer implements ApplicationListener<StageReadyEvent>{
 		public static final String FXML_HOME = "home";
 		public static final String FXML_SENDER = "sender";
 		public static final String FXML_RECEIVER = "receiver";
+		public static final String FXML_CONNECTION_PROPERTIES_DIALOG = "connectionPropertiesDialog";
+		public static final String FXML_MANAGE_CONNECTION = "manageConnection";
+		public static final String FXML_GENERAL_USER_BORDERPANE = "generalUseBorderPane";
 		
 		private static RootManager rootManager;
 		private static final LinkedHashMap<String, Resource> registeredResources = new LinkedHashMap<>(); 

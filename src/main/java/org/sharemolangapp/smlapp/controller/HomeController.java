@@ -3,6 +3,8 @@ package org.sharemolangapp.smlapp.controller;
 import java.io.IOException;
 
 import org.sharemolangapp.smlapp.StageInitializer.RootManager;
+import org.sharemolangapp.smlapp.receiver.ReceiverController;
+import org.sharemolangapp.smlapp.sender.SenderController;
 import org.springframework.stereotype.Component;
 
 import javafx.event.ActionEvent;
@@ -28,7 +30,15 @@ public class HomeController {
 		
 		Stage stage = (Stage)((Node)actionEvent.getSource()).getScene().getWindow();
 		Scene scene = stage.getScene();
+		
 		scene.setRoot(rootManager.loadFXML(rootManager.getRegisteredResources().get(RootManager.FXML_SENDER)));
+		
+		SenderController senderController = rootManager.getFXMLLoader().getController();
+		senderController.connectToServerDialog();
+		stage.setOnCloseRequest( (stageHandle) -> {
+			senderController.closeAll();
+			stage.close();
+		});
 	}
 	
 	
@@ -38,7 +48,14 @@ public class HomeController {
 		
 		Stage stage = (Stage)((Node)actionEvent.getSource()).getScene().getWindow();
 		Scene scene = stage.getScene();
+		
 		scene.setRoot(rootManager.loadFXML(rootManager.getRegisteredResources().get(RootManager.FXML_RECEIVER)));
+		
+		ReceiverController receiverController = rootManager.getFXMLLoader().getController();
+		stage.setOnCloseRequest( (stageHandle) -> {
+			receiverController.closeAll();
+			stage.close();
+		});
 	}
 	
 	
@@ -46,4 +63,6 @@ public class HomeController {
 //		this.queueList.clear();
 //		this.queueList.addAll(queueList);
 //	}
+	
+	
 }
