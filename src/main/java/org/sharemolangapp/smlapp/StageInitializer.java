@@ -20,6 +20,7 @@ public class StageInitializer implements ApplicationListener<StageReadyEvent>{
 	
 	private static Scene scene;
 	
+	
 	private final String appTitle;
 	@Value("classpath:/fxml/home.fxml")
 	private Resource homeResource;
@@ -65,11 +66,15 @@ public class StageInitializer implements ApplicationListener<StageReadyEvent>{
         rootManager.registerResource(RootManager.FXML_GENERAL_USER_BORDERPANE, generalUseBorderPane);
         
         scene = new Scene(rootManager.loadFXML(homeResource));
+        rootManager.loadFXML(homeResource);
         stage.setScene(scene);
 //        stage.setFullScreen(true);
 //        stage.setMaximized(true);
         stage.show();
 	}
+	
+	
+	
 	
 	
 	public static class RootManager {

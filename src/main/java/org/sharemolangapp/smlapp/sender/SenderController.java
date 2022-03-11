@@ -218,7 +218,7 @@ public class SenderController implements Initializable {
 		
 		selectedQueueList = FXCollections.observableArrayList(multiSelectionModel.getSelectedItems());
 		dragOverComponent.setDisable(true);
-		listviewQueue.setDisable(true);
+		sendFilesButton.setDisable(true);
 		uploadFilesButton.setDisable(true);
 		connectionPropertiesButton.setDisable(true);
 		backHomeButton.setDisable(true);
@@ -273,7 +273,7 @@ public class SenderController implements Initializable {
 			multiSelectionModel.clearSelection();
 			
 			dragOverComponent.setDisable(false);
-			listviewQueue.setDisable(false);
+			sendFilesButton.setDisable(false);
 			uploadFilesButton.setDisable(false);
 			connectionPropertiesButton.setDisable(false);
 			backHomeButton.setDisable(false);
@@ -286,37 +286,6 @@ public class SenderController implements Initializable {
 	
 	
 	
-//	private void sendFileTo(File file) throws IOException {
-//		String fileName = file.getName();
-//		StringBuilder receivingFolder = new StringBuilder();
-//		receivingFolder.append(System.getProperty("user.home"));
-//		receivingFolder.append(File.separator);
-//		receivingFolder.append("Desktop");
-//		receivingFolder.append(File.separator);
-//		receivingFolder.append("received");
-//		receivingFolder.append(File.separator);
-//		receivingFolder.append(fileName);
-//		
-//		File toOutputfile = new File(receivingFolder.toString());
-//		WorkMonitor workMonitor = workDoneMap.get(file);
-//		
-//		
-//		try(FileOutputStream output = new FileOutputStream(toOutputfile);
-//				FileInputStream input = new FileInputStream(file)){
-//			long transferred = 0;
-//	        byte[] buffer = new byte[ConfigConstant.DEFAULT_BUFFER_SIZE];
-//	        int read;
-//	        while ((read = input.read(buffer, 0, ConfigConstant.DEFAULT_BUFFER_SIZE)) >= 0) {
-//	        	output.write(buffer, 0, read);
-//	            transferred += read;
-//	            workMonitor.setWorkDone(transferred);
-//	        }
-//	        
-//		} catch(IOException ioex) {
-//			throw new IOException(ioex);
-//		}
-//	}
-//	
 //	private String toMB(double value) {
 //		double computedValue =  (value/1024)/1024;
 //		return String.format("%,.2f", computedValue)+"MB";

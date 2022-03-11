@@ -56,14 +56,22 @@ class ReceiverService {
 		return receiverNetwork.startServer(Integer.parseInt(serverProp.get("port").toString()));
 	}
 	
+	
 	void startWaitingForClient() {
 		receiverNetwork.waitingForClient(receiveOnClientHandler);
 	}
 	
 	
+	boolean isConnected() {
+		return receiverNetwork.isConnected();
+	}
+	
+	
+	
 	void closeAll() {
 		receiverNetwork.closeConnection();
 	}
+	
 	
 	void closeClientConnection() {
 		receiverNetwork.closeClientConnection();

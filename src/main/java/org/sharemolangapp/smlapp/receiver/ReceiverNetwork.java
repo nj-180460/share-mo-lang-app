@@ -1,8 +1,6 @@
 package org.sharemolangapp.smlapp.receiver;
 
-import java.io.BufferedInputStream;
-import java.io.File;
-import java.io.FileOutputStream;
+
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -12,7 +10,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
 import org.sharemolangapp.smlapp.receiver.ReceiverService.ReceiveOnClientHandler;
-import org.sharemolangapp.smlapp.util.GenericUtils;
 
 
 
@@ -80,13 +77,14 @@ class ReceiverNetwork {
 			execService.execute( () -> {
 				try {
 					Socket clientSocket = serverSocket.accept();
-					System.out.println("client is connected");
+					
 					clientHandler = new ClientHandler(clientSocket);
 					CLIENT_CONNECTION_ESTABLISHED = true;
-					System.out.println("waiting for files...");
+					
 					clientHandler.setReceiveOnClientHandler(receiveOnClientHandler);
-					System.out.println("done");
+					
 					CLIENT_CONNECTION_ESTABLISHED = false;
+					
 				} catch (IOException e) {
 					e.printStackTrace();
 					CLIENT_CONNECTION_ESTABLISHED = false;
@@ -97,11 +95,16 @@ class ReceiverNetwork {
 			execService.shutdown();
 		}
 		
-		if(clientHandler != null) {
-			if(!clientHandler.isActive()) {
-				CLIENT_CONNECTION_ESTABLISHED = false;
-			}
-		}
+//		if(clientHandler != null) {
+//			if(!clientHandler.isActive()) {
+//				CLIENT_CONNECTION_ESTABLISHED = false;
+//			}
+//		}
+	}
+	
+	
+	boolean isConnected() {
+		return (clientHandler != null ? clientHandler.isConnected() : false);
 	}
 	
 	
@@ -152,45 +155,13 @@ class ReceiverNetwork {
 		}
 		
 		
-		void receiveFilePropertiesFirst() {
-			
+		boolean isActive() {
+			return clientSocket != null ? clientSocket.isClosed() : false;
 		}
 		
 		
-//		void readFiles() throws IOException {
-//			
-//			String fileName = "(file)";
-//			StringBuilder receivingFolder = new StringBuilder();
-//			receivingFolder.append(System.getProperty("user.home"));
-//			receivingFolder.append(File.separator);
-//			receivingFolder.append("Desktop");
-//			receivingFolder.append(File.separator);
-//			receivingFolder.append("received");
-//			receivingFolder.append(File.separator);
-//			
-//			
-//			File toOutputfile = new File(receivingFolder.toString());
-//			
-//			try(FileOutputStream output = new FileOutputStream(toOutputfile);
-//					BufferedInputStream input = new BufferedInputStream(clientSocket.getInputStream(), GenericUtils.DEFAULT_BUFFER_SIZE)){
-//				
-//				long transferred = 0;
-//		        byte[] buffer = new byte[GenericUtils.DEFAULT_BUFFER_SIZE];
-//		        int read;
-//		        while ((read = input.read(buffer)) >= 0) {
-//		        	output.write(buffer, 0, read);
-//		            transferred += read;
-//		        }
-//		        
-//			} catch(IOException ioex) {
-//				throw new IOException(ioex);
-//			}
-//			
-//		}
-		
-		
-		boolean isActive() {
-			return clientSocket != null ? clientSocket.isClosed() : false;
+		boolean isConnected() {
+			return clientSocket != null ? clientSocket.isConnected() : false;
 		}
 		
 		
