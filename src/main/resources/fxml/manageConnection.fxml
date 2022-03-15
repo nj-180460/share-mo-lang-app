@@ -27,13 +27,13 @@
          <children>
             <VBox minWidth="-Infinity" prefWidth="150.0">
                <children>
-                  <Label text="Server Name:" />
+                  <Label text="Sender Name:" />
                   <Label text="Host Address:" />
                </children>
             </VBox>
             <VBox>
                <children>
-                  <Label fx:id="labelServerName" VBox.vgrow="ALWAYS" />
+                  <Label fx:id="labelSenderName" VBox.vgrow="ALWAYS" />
                   <Label fx:id="labelHostAddress" VBox.vgrow="ALWAYS" />
                </children>
             </VBox>

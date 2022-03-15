@@ -54,8 +54,8 @@ public class StageInitializer implements ApplicationListener<StageReadyEvent>{
 	
 	
 	private void setupStage(Stage stage) throws IOException {
-//		stage.setMinHeight(580);
-//    	stage.setMinWidth(700);
+		stage.setMinHeight(550);
+    	stage.setMinWidth(285);
         stage.setTitle(appTitle);
         
         RootManager rootManager = RootManager.getRootManager();

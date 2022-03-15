@@ -16,7 +16,7 @@ import javafx.stage.Stage;
 public class ManageConnection implements Initializable{
 
 	@FXML private Button disconnectClientButton;
-	@FXML private Label labelServerName;
+	@FXML private Label labelSenderName;
 	@FXML private Label labelHostAddress;
 	
 	private ReceiverService receiverService;
@@ -33,8 +33,9 @@ public class ManageConnection implements Initializable{
 	@FXML
 	private void handleClientDisconnect(ActionEvent actionEvent) {
 		receiverService.closeClientConnection();
-		labelServerName.setText("Disconnected");
+		labelSenderName.setText("Disconnected");
 		labelHostAddress.setText("Disconnected");
+		receiverController.setConnectedToText("");
 	}
 	
 	
@@ -42,10 +43,10 @@ public class ManageConnection implements Initializable{
 		this.receiverService = receiverService;
 		String host = String.valueOf(receiverService.getClientProperties().get("host"));
 		if(host != null && !host.equals("null")) {
-			labelServerName.setText(host);
+			labelSenderName.setText(host);
 			labelHostAddress.setText(host);
 		} else {
-			labelServerName.setText("Disconnected");
+			labelSenderName.setText("Disconnected");
 			labelHostAddress.setText("Disconnected");
 		}
 	}

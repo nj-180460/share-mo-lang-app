@@ -1,19 +1,18 @@
 package org.sharemolangapp.smlapp.receiver;
 
+import java.io.File;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.net.URL;
-import java.util.Optional;
 import java.util.Properties;
 import java.util.ResourceBundle;
-import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 
 import org.sharemolangapp.smlapp.StageInitializer.RootManager;
 import org.sharemolangapp.smlapp.controller.ExceptionUI;
 import org.sharemolangapp.smlapp.controller.GeneralUseBorderPane;
+import org.sharemolangapp.smlapp.layer.Workable;
 import org.sharemolangapp.smlapp.util.ConfigConstant;
 import org.sharemolangapp.smlapp.util.GenericUtils;
 import org.sharemolangapp.smlapp.util.QRCodeUtil;
@@ -21,6 +20,8 @@ import org.sharemolangapp.smlapp.util.QRCodeUtil;
 import com.google.zxing.WriterException;
 
 import javafx.application.Platform;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
 import javafx.concurrent.Service;
 import javafx.concurrent.Task;
 import javafx.embed.swing.SwingFXUtils;
@@ -35,10 +36,19 @@ import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.Label;
+import javafx.scene.control.ListCell;
+import javafx.scene.control.ListView;
+import javafx.scene.control.MultipleSelectionModel;
+import javafx.scene.control.ProgressBar;
 import javafx.scene.control.ProgressIndicator;
+import javafx.scene.control.SelectionMode;
 import javafx.scene.image.ImageView;
+import javafx.scene.layout.StackPane;
+import javafx.scene.text.Text;
+import javafx.scene.text.TextAlignment;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
+import javafx.util.Callback;
 import javafx.scene.control.Alert.AlertType;
 
 
@@ -51,8 +61,10 @@ public class ReceiverController implements Initializable{
 	private static boolean CLOSING_STAGE = false;
 	private static boolean CLOSING_SCENE = false;
 	
-//	private final ArrayList<ProgressIndicatorBar> selectedProgresBar = new ArrayList<>();
+	private final ObservableList<ProgressIndicatorBar> obsReceivedListView = FXCollections.observableArrayList();
+	
 	private ReceiverService receiverService;
+	private WorkMonitor workMonitor;
 	
 	private GeneralUseBorderPane generalUseBorderPane;
 	@FXML private Button receiverManageConnectionButton;
@@ -60,20 +72,12 @@ public class ReceiverController implements Initializable{
 	@FXML private ImageView qrcodeImageServerContent;
 	@FXML private Label labelReceiverHost;
 	@FXML private Label labelReceiverPort;
-//	@FXML private ListView<ProgressIndicatorBar> listOnline;
-//	private ObservableList<ProgressIndicatorBar> observableListOnline;
+	@FXML private Label connectedToLabel;
+	@FXML private ListView<ProgressIndicatorBar> receivedListViewReceiver;
 
 	
 	@Override
 	public void initialize(URL location, ResourceBundle resources) {
-//		observableListOnline = listOnline.getItems();
-		
-//		listOnline.setCellFactory(new Callback<ListView<ProgressIndicatorBar>, ListCell<ProgressIndicatorBar>>() {
-//            @Override
-//            public ListCell<ProgressIndicatorBar> call(ListView<ProgressIndicatorBar> listView) {
-//                return new ProgressBarListCell();
-//            }
-//        });
 		
 		CLOSING_STAGE = false;
 		CLOSING_SCENE = false;
@@ -82,13 +86,26 @@ public class ReceiverController implements Initializable{
 		receiverService = new ReceiverService(this);
 		initializeData();
 		
-//		handleListviewQueue(listOnline);
+		receivedListViewReceiver.setItems(obsReceivedListView);
+		handleListviewReceive(receivedListViewReceiver);
+		
 	}
 	
 	
 	public void closeAll() {
 		CLOSING_SCENE = true;
+		if(workMonitor != null) {
+			workMonitor.shutdownMonitoring();
+		}
 		receiverService.closeAll();
+	}
+	
+	
+	
+	void setConnectedToText(final String clientConnectedTo) {
+		Platform.runLater( () -> {
+			connectedToLabel.setText(clientConnectedTo == null ? "" : clientConnectedTo);
+		});
 	}
 	
 	
@@ -227,8 +244,14 @@ public class ReceiverController implements Initializable{
 			alert.showAndWait()
 				.filter( result -> result == ButtonType.OK)
 				.ifPresentOrElse(
-						result -> receiverService.setRequest(ConfigConstant.OK_RESPONSE),
-						() -> receiverService.setRequest(ConfigConstant.DECLINE_RESPONSE));
+						result -> { 
+							receiverService.setRequest(ConfigConstant.OK_RESPONSE);
+							setConnectedToText("Connected: "+ receiverService.getClientProperties().get("host").toString());
+						},
+						() -> {
+							receiverService.setRequest(ConfigConstant.DECLINE_RESPONSE);
+							setConnectedToText("");
+						});
 		});
 		
 		while(receiverService.getResponse().equals(ConfigConstant.CLIENT_REQUESTING_RESPONSE)
@@ -283,38 +306,62 @@ public class ReceiverController implements Initializable{
 	
 	
 	
-//	private void handleListviewQueue(ListView<ProgressIndicatorBar> listviewQueue) {
-//		MultipleSelectionModel<ProgressIndicatorBar> multiSelectionModel = listviewQueue.getSelectionModel();
-//		multiSelectionModel.setSelectionMode(SelectionMode.MULTIPLE);
-//		ReadOnlyObjectProperty<ProgressIndicatorBar> readOnlyProp = multiSelectionModel.selectedItemProperty();
-//		readOnlyProp.addListener( new ChangeListener<ProgressIndicatorBar>() {
-//
-//			@Override
-//			public void changed(ObservableValue<? extends ProgressIndicatorBar> observable, ProgressIndicatorBar oldValue,
-//					ProgressIndicatorBar newValue) {
-//				selectedProgresBar.clear();
-//				selectedProgresBar.addAll(multiSelectionModel.getSelectedItems());
-//			}
-//			
-//		});
-//	}
+	WorkMonitor getWorkMonitor() {
+		return workMonitor;
+	}
+	
+	
+	void addMonitoringFile(File file, String fileSize) {
+
+		workMonitor = new WorkMonitor(Long.parseLong(fileSize));
+		ProgressIndicatorBar withProgressBar = new ProgressIndicatorBar(workMonitor, Double.parseDouble(fileSize), file.getAbsolutePath());
+		
+		Service<Void> service = new Service<>() {
+
+			@Override
+			protected Task<Void> createTask() {
+				
+				return new Task<Void>() {
+
+					@Override
+					protected Void call() throws Exception {
+						
+						Platform.runLater( () -> {
+							obsReceivedListView.add(withProgressBar);
+						});
+						
+						TRANSFER_MODE = true;
+						withProgressBar.startMonitoring();
+						TRANSFER_MODE = false;
+						
+						return null;
+					}
+					
+				};
+			}
+			
+		};
+		
+		service.start();
+	}
 	
 	
 	
-//	private ProgressIndicatorBar onProgressFile(String fileName) {
-//		
-//		final int TOTAL_WORK = 20;
-//	    final String WORK_DONE_LABEL_FORMAT = fileName+": "+TOTAL_WORK+"/%.0f";
-//
-//	    final ProgressIndicatorBar progressBar = new ProgressIndicatorBar(
-//	        workDone.getReadOnlyProperty(),
-//	        TOTAL_WORK,
-//	        WORK_DONE_LABEL_FORMAT
-//	    );
-//
-//		
-//		return progressBar;
-//	}
+	
+	
+	private void handleListviewReceive(ListView<ProgressIndicatorBar> listviewQueue) {
+		
+		// custom progress bar
+		listviewQueue.setCellFactory(new Callback<ListView<ProgressIndicatorBar>, ListCell<ProgressIndicatorBar>>() {
+            @Override
+            public ListCell<ProgressIndicatorBar> call(ListView<ProgressIndicatorBar> listView) {
+                return new ProgressBarListCell();
+            }
+        });
+		
+		MultipleSelectionModel<ProgressIndicatorBar> multiSelectionModel = listviewQueue.getSelectionModel();
+		multiSelectionModel.setSelectionMode(SelectionMode.MULTIPLE);
+	}
 	
 	
 	
@@ -324,63 +371,59 @@ public class ReceiverController implements Initializable{
 	 * Custom progress bar
 	 *
 	 */
-//	class ProgressIndicatorBar extends StackPane {
-//		
-//		final private static int DEFAULT_LABEL_PADDING = 1;
-//		
-//		final private WorkMonitor workDone;
-//		final private double totalWork;
-//
-//		final private ProgressBar bar  = new ProgressBar();
-//		final private Text text = new Text();
-//		final private String labelFormatSpecifier;
-//		private final String fileName;
-//
-//		
-//		ProgressIndicatorBar(final WorkMonitor workDone, final double totalWork, final String labelFormatSpecifier) {
-//			this.workDone  = workDone;
-//		    this.totalWork = totalWork;
-//		    this.labelFormatSpecifier = "(%s/"+toMB(totalWork)+") "+labelFormatSpecifier;
-//		    this.fileName = labelFormatSpecifier;
-//		    
-//		    text.setTextAlignment(TextAlignment.LEFT);
-//		    text.setText(String.format(this.labelFormatSpecifier, toMB(Math.ceil(workDone.getWorkDone()))));
-//		    bar.setMaxWidth(Double.MAX_VALUE); // allows the progress bar to expand to fill available horizontal space.
-//		    bar.setStyle("-fx-accent: #0F0;");
-//		    bar.setProgress(workDone.getWorkDone() / totalWork);
-//		    
-//		    getChildren().setAll(bar, text);
-//		}
-//
-//		// synchronizes the progress indicated with the work done.
-//		private void syncProgress(double progress, String computedWorkDone) {
-//			if (workDone == null || totalWork == 0) {
-//				text.setText("");
-//				bar.setProgress(ProgressBar.INDETERMINATE_PROGRESS);
-//			} else {
-//				text.setText(String.format(labelFormatSpecifier, computedWorkDone));
-//				bar.setProgress(progress);
-//			}
-//			
-//			bar.setMinHeight(text.getBoundsInLocal().getHeight() + DEFAULT_LABEL_PADDING * 2);
-//			bar.setMinWidth (text.getBoundsInLocal().getWidth()  + DEFAULT_LABEL_PADDING * 2);
-//		}
-//		
-//		private void startMonitoring() {
-//		    workDone.monitorWorker( () -> {
-//		    	String computedValue = toMB(workDone.getWorkDone());
-//		    	double progress = workDone.getWorkDone() / totalWork;
-//		    	Platform.runLater( () -> {
-//		    		syncProgress(progress, computedValue);
-//		    	});
-//		    });
-//		}
-//		
-//		private String toMB(double value) {
-//			double computedValue =  (value/1024)/1024;
-//			return String.format("%,.2f", computedValue)+"MB";
-//		}
-//	}
+	class ProgressIndicatorBar extends StackPane {
+		
+		private static final int DEFAULT_LABEL_PADDING = 1;
+		
+		private final WorkMonitor workDone;
+		private final double totalWork;
+
+		private final ProgressBar bar  = new ProgressBar();
+		private final Text text = new Text();
+		private final String labelFormatSpecifier;
+		private final String fileName;
+
+		
+		ProgressIndicatorBar(final WorkMonitor workDone, final double totalWork, final String labelFormatSpecifier) {
+			this.workDone  = workDone;
+		    this.totalWork = totalWork;
+		    this.labelFormatSpecifier = "(%s/"+GenericUtils.toMB(totalWork)+") "+labelFormatSpecifier;
+		    this.fileName = labelFormatSpecifier;
+		    
+		    text.setTextAlignment(TextAlignment.LEFT);
+		    text.setText(String.format(this.labelFormatSpecifier, GenericUtils.toMB(Math.ceil(workDone.getWorkDone()))));
+		    bar.setMaxWidth(Double.MAX_VALUE); // allows the progress bar to expand to fill available horizontal space.
+		    bar.setStyle("-fx-accent: #0F0;");
+		    bar.setProgress(workDone.getWorkDone() / totalWork);
+		    
+		    getChildren().setAll(bar, text);
+		}
+
+		// synchronizes the progress indicated with the work done.
+		private void syncProgress(double progress, String computedWorkDone) {
+			if (workDone == null || totalWork == 0) {
+				text.setText("");
+				bar.setProgress(ProgressBar.INDETERMINATE_PROGRESS);
+			} else {
+				text.setText(String.format(labelFormatSpecifier, computedWorkDone));
+				bar.setProgress(progress);
+			}
+			
+			bar.setMinHeight(text.getBoundsInLocal().getHeight() + DEFAULT_LABEL_PADDING * 2);
+			bar.setMinWidth (text.getBoundsInLocal().getWidth()  + DEFAULT_LABEL_PADDING * 2);
+		}
+		
+		private void startMonitoring() {
+		    workDone.monitorWorker( () -> {
+		    	String computedValue = GenericUtils.toMB(workDone.getWorkDone());
+		    	double progress = workDone.getWorkDone() / totalWork;
+		    	Platform.runLater( () -> {
+		    		syncProgress(progress, computedValue);
+		    	});
+		    });
+		}
+		
+	}
 	
 	
 	
@@ -389,22 +432,22 @@ public class ReceiverController implements Initializable{
 	 * Custome cell on listview
 	 *
 	 */
-//	private class ProgressBarListCell extends ListCell<ProgressIndicatorBar> {
-//
-//        public ProgressBarListCell() {
-//            super();
-//        }
-//
-//        @Override
-//        protected void updateItem(ProgressIndicatorBar item, boolean empty) {
-//            super.updateItem(item, empty);
-//            if (item != null && !empty) {
-//                setGraphic(item);
-//            } else {
-//                setGraphic(null);
-//            }
-//        }
-//    }
+	private class ProgressBarListCell extends ListCell<ProgressIndicatorBar> {
+
+        public ProgressBarListCell() {
+            super();
+        }
+
+        @Override
+        protected void updateItem(ProgressIndicatorBar item, boolean empty) {
+            super.updateItem(item, empty);
+            if (item != null && !empty) {
+                setGraphic(item);
+            } else {
+                setGraphic(null);
+            }
+        }
+    }
 	
 	
 	
@@ -412,47 +455,60 @@ public class ReceiverController implements Initializable{
 	
 	
 	
-//	class WorkMonitor {
-//		
-//		private final long totalWork;
-//		
-//		private long workDone;
-//		private long oldValue = workDone;
-//		
-//		public WorkMonitor(long totalWork) {
-//			this.totalWork = totalWork;
-//		}
-//		
-//		public long getTotalWork() {
-//			return totalWork;
-//		}
-//		
-//		public void setWorkDone(long workDone) {
-//			this.workDone = workDone;
-//		}
-//		
-//		public long getWorkDone() {
-//			return workDone;
-//		}
-//		
-//		public void monitorWorker(Workable worker) {
-//			ExecutorService exeService = Executors.newSingleThreadExecutor();
-//			exeService.execute( () -> {
-//				while(workDone != totalWork) {
-//					try {
-//						Thread.sleep(GenericUtils.TRANSFER_RATE_MS);
-//					} catch (InterruptedException e) {
-//						e.printStackTrace();
-//					}
-//					if(workDone != oldValue) {
-//						oldValue = workDone;
-//						worker.work();
-//					}
-//				}
-//				TRANSFER_MODE = false;
-//			});
-//			exeService.shutdown();
-//		}
-//	}
+	class WorkMonitor {
+		
+		private final long totalWork;
+		private final ExecutorService exeService = Executors.newSingleThreadExecutor();
+		
+		private long workDone;
+		private long oldValue = workDone;
+		
+		WorkMonitor(long totalWork) {
+			this.totalWork = totalWork;
+		}
+		
+		long getTotalWork() {
+			return totalWork;
+		}
+		
+		void setWorkDone(long workDone) {
+			this.workDone = workDone;
+		}
+		
+		long getWorkDone() {
+			return workDone;
+		}
+		
+		void monitorWorker(Workable worker) {
+			exeService.execute( () -> {
+				while((workDone != totalWork)) {
+					
+					if(CLOSING_STAGE) {
+						break;
+					}
+					
+					try {
+						Thread.sleep(GenericUtils.TRANSFER_RATE_MS);
+					} catch (InterruptedException e) {
+						e.printStackTrace();
+					}
+					
+					if(workDone != oldValue) {
+						oldValue = workDone;
+						worker.work();
+					}
+				}
+				
+				TRANSFER_MODE = false;
+			});
+			
+			exeService.shutdown();
+		}
+		
+		// wara pa kagamiti
+		private void shutdownMonitoring() {
+			exeService.shutdownNow();
+		}
+	}
 	
 }

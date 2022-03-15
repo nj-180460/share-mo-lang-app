@@ -92,7 +92,6 @@ class ReceiverNetwork {
 			clientRequestExec.execute( () -> {
 				
 				do {
-				
 					
 					try (Socket clientSocket = serverSocket.accept()){
 						

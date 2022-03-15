@@ -145,8 +145,12 @@ class SenderService {
 	        	this.fileInputStream = fileInputStream;
 	        	
 	            String fileName = file.getName();
-
-	            dataOutputStream.writeUTF(fileName);
+	            StringBuilder fileProperty = new StringBuilder();
+	            fileProperty.append(fileName);
+	            fileProperty.append(":");
+	            fileProperty.append(file.length());
+	            
+	            dataOutputStream.writeUTF(fileProperty.toString());
 	            dataOutputStream.flush();
 
 	            String serverResponse = dataInputStream.readUTF();
