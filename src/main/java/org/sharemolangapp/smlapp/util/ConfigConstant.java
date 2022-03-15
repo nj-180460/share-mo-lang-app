@@ -2,9 +2,21 @@ package org.sharemolangapp.smlapp.util;
 
 import java.io.File;
 
+
+
 public abstract class ConfigConstant {
 	
-	
+	// reponses
+	public static final String OK_RESPONSE = "OK";
+	public static final String DECLINE_RESPONSE = "DECLINE";
+	public static final String SERVER_UP_RESPONSE = "SERVER_UP";
+	public static final String SERVER_DOWN_RESPONSE = "SERVER_DOWN";
+	public static final String CLIENT_UP_RESPONSE = "CLIENT_UP";
+	public static final String CLIENT_DOWN_RESPONSE = "CLIENT_DOWN";
+	public static final String CLIENT_REQUESTING_RESPONSE = "CLIENT_REQUESTING";
+	public static final String NONE_RESPONSE = "NONE";
+	public static final String FILENAME_EMPTY_RESPONSE = "FILENAME_EMPTY";
+	public static final String CONNECTION_LOST_RESPONSE = "CONNECTION_LOST";
 	// json
 	public static final String PREFERENCES_JSON_FILE = "preferences.json";
 	
@@ -40,27 +52,8 @@ public abstract class ConfigConstant {
 	
 	// settings nodes
 	public enum SettingsNode{
-		VACCINATION_CARD("vaccination_card"),
-		VACCINEE_PROFILE("vaccinee_profile"),
-		DOSAGE_TAB("dosage_tab"),
-		PREFERRED_CAMERA_DEVICE("preferred_camera_device"),
-		LIST_REPORT_FILTER_BY_MONTH_LIMIT("list_report_filter_by_month_limit"),
-		BARANGAY("barangay"),
-		MUNICIPALITY("municipality"),
-		PROVINCE("province"),
-		VACCINE("vaccine"),
-		CATEGORY("category"),
-		DESIGNATION("designation"),
-		WEBCAM_LIST("webcamList"),
-		KEY("key"),
-		DEPRECIATED_KEYS("depreciated_keys"),
-		HOST("host"),
-		PORT("port"),
-		REGISTRATION_AGE_LIMIT("registration_age_limit"),
-		DAYS_INTERVAL_NEXT_JAB("days_interval_next_jab"),
-		REGISTRATION_SENIOR_AGE("60"),
-		LAOANG_ID_NUMBER("laoang_id_number");
-		
+		PREFERENCES("Preferences"),
+		EXIT("Exit");
 		private String value;
 		SettingsNode(String value){
 			this.value = value;

@@ -18,7 +18,10 @@ public class ManageConnection implements Initializable{
 	@FXML private Button disconnectClientButton;
 	@FXML private Label labelServerName;
 	@FXML private Label labelHostAddress;
+	
+	private ReceiverService receiverService;
 	private ReceiverController receiverController;
+	
 	
 	
 	@Override
@@ -29,10 +32,23 @@ public class ManageConnection implements Initializable{
 	
 	@FXML
 	private void handleClientDisconnect(ActionEvent actionEvent) {
+		receiverService.closeClientConnection();
 		labelServerName.setText("Disconnected");
 		labelHostAddress.setText("Disconnected");
 	}
 	
+	
+	void setReceiverService(ReceiverService receiverService) {
+		this.receiverService = receiverService;
+		String host = String.valueOf(receiverService.getClientProperties().get("host"));
+		if(host != null && !host.equals("null")) {
+			labelServerName.setText(host);
+			labelHostAddress.setText(host);
+		} else {
+			labelServerName.setText("Disconnected");
+			labelHostAddress.setText("Disconnected");
+		}
+	}
 	
 	void setParentController(ReceiverController receiverController) {
 		this.receiverController = receiverController;

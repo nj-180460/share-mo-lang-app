@@ -8,6 +8,8 @@ public abstract class GenericUtils {
 
 	public static final int TRANSFER_RATE_MS = 500;
 	public static final int DEFAULT_BUFFER_SIZE = 8192;
+	public static final int READ_SO_TIMEOUT = 30_000;
+	public static final int CONNECTION_SO_TIMEOUT = 30_000;
 	public static boolean IS_WINDOWS = true;
 	static {
 		String os = System.getProperty("os.name").toUpperCase();

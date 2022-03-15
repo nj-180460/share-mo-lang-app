@@ -3,14 +3,18 @@ package org.sharemolangapp.smlapp.receiver;
 import java.io.BufferedInputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.io.EOFException;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.UnknownHostException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Properties;
 
+import org.sharemolangapp.smlapp.util.ConfigConstant;
 import org.sharemolangapp.smlapp.util.GenericUtils;
 import org.sharemolangapp.smlapp.util.NetworkUtility;
 
@@ -20,15 +24,22 @@ class ReceiverService {
 
 	private static int NUMBER_OF_FILES = 0;
 	
+	private final ReceiverController receiverController;
 	private final ReceiverNetwork receiverNetwork;
-	private final Properties serverProp;
+	private final Properties serverProperties;
+	private final Properties clientProperties;
 	private final ReceiveOnClientHandler receiveOnClientHandler;
 	
+	private String feedback;
 	
-	ReceiverService(){
-		receiverNetwork = new ReceiverNetwork();
-		serverProp = new Properties();
-		receiveOnClientHandler = new ReceiveOnClientHandler();
+	
+	ReceiverService(ReceiverController receiverController){
+		this.receiverController = receiverController;
+		this.receiverNetwork = new ReceiverNetwork(this);
+		this.serverProperties = new Properties();
+		this.clientProperties = new Properties();
+		this.receiveOnClientHandler = new ReceiveOnClientHandler();
+		this.feedback = ConfigConstant.NONE_RESPONSE;
 	}
 	
 	
@@ -41,19 +52,28 @@ class ReceiverService {
 			throw new ReceiverNetworkException("IP Address and Port must be present.");
 		}
 		
-		serverProp.put("host", host);
-		serverProp.put("port", port);
+		serverProperties.put("host", host);
+		serverProperties.put("port", port);
 		
 	}
 	
 	
+	ReceiveOnClientHandler getReceiveOnClientHandler() {
+		return receiveOnClientHandler;
+	}
+	
+	
 	Properties getServerProperties() {
-		return serverProp;
+		return serverProperties;
+	}
+	
+	Properties getClientProperties() {
+		return clientProperties;
 	}
 	
 	
 	boolean startServer() throws NumberFormatException, UnknownHostException, IOException {
-		return receiverNetwork.startServer(Integer.parseInt(serverProp.get("port").toString()));
+		return receiverNetwork.startServer();
 	}
 	
 	
@@ -67,8 +87,8 @@ class ReceiverService {
 	}
 	
 	
-	
-	void closeAll() {
+	synchronized void closeAll() {
+		setRequest(ConfigConstant.NONE_RESPONSE);
 		receiverNetwork.closeConnection();
 	}
 	
@@ -76,6 +96,23 @@ class ReceiverService {
 	void closeClientConnection() {
 		receiverNetwork.closeClientConnection();
 	}
+	
+	
+	
+	void setRequest(String feedback) {
+		this.feedback = feedback;
+	}
+	
+	String getResponse() {
+		return feedback;
+	}
+	
+	
+	
+	boolean serverConfirmation() {
+		return receiverController.serverConfirmation();
+	}
+
 	
 	
 //	void sendFileTo(File file, WorkMonitor workMonitor) throws IOException {
@@ -134,16 +171,18 @@ class ReceiverService {
 		private DataOutputStream dataOutputStream;
 		
 		
-		
-		void setClientStreams(InputStream inputStream, OutputStream outputStream) {
-			bufferedInputStream = new BufferedInputStream(inputStream);
-			dataInputStream = new DataInputStream(inputStream);
-            dataOutputStream = new DataOutputStream(outputStream);
+		void setClientStreams(
+				DataInputStream dataInputStream,
+				DataOutputStream dataOutputStream,
+				BufferedInputStream bufferedInputStream) {
+			this.dataInputStream = dataInputStream;
+            this.dataOutputStream = dataOutputStream;
+			this.bufferedInputStream = bufferedInputStream;
 		}
 		
 		
 		
-		// 3 way handshake
+		// 3 way handshake confirmation/verification
 		void onRead() throws IOException {
 			
 			while((NUMBER_OF_FILES = dataInputStream.readInt()) >= 0) {
@@ -151,6 +190,7 @@ class ReceiverService {
 	            dataOutputStream.flush();
 
 	            while(NUMBER_OF_FILES > 0){
+	            	
 	                onWaitFile();
 
 	                NUMBER_OF_FILES--;
@@ -160,7 +200,6 @@ class ReceiverService {
 	                }
 	            }
 			}
-			System.out.println("terminates server waiting.");
 			
 		}
 		
@@ -171,7 +210,8 @@ class ReceiverService {
 			String fileName = dataInputStream.readUTF();
 
 	        boolean validFileName = (fileName != null && !fileName.isBlank());
-	        dataOutputStream.writeBoolean(validFileName);
+	        String response = (validFileName ? ConfigConstant.OK_RESPONSE : ConfigConstant.FILENAME_EMPTY_RESPONSE);
+	        dataOutputStream.writeUTF(response);
 	        dataOutputStream.flush();
 
 	        if(validFileName){
@@ -182,7 +222,7 @@ class ReceiverService {
 		
 		
 		
-		private void readFile(String fileName, InputStream inputStream){
+		private void readFile(String fileName, InputStream inputStream) throws IOException{
 
 			StringBuilder receivingFolder = new StringBuilder();
 			receivingFolder.append(System.getProperty("user.home"));
@@ -191,6 +231,9 @@ class ReceiverService {
 			receivingFolder.append(File.separator);
 			receivingFolder.append("received");
 			receivingFolder.append(File.separator);
+			
+			Files.createDirectories(Paths.get(receivingFolder.toString())); // TEMPORARY
+			
 			receivingFolder.append(fileName);
 			
 	        File receivingFile = new File(receivingFolder.toString());
@@ -207,8 +250,9 @@ class ReceiverService {
 	            }
 	            outputStream.flush();
 
-	        }catch(IOException io){
+	        } catch(IOException io){
 	            io.printStackTrace();
+	            Files.deleteIfExists(receivingFile.toPath());
 	        }
 	        
 	    }

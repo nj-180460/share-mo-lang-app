@@ -18,6 +18,7 @@ import javafx.stage.Stage;
 @Component
 public class StageInitializer implements ApplicationListener<StageReadyEvent>{
 	
+	private static final RootManager ROOT_MANAGER = new RootManager();
 	private static Scene scene;
 	
 	
@@ -86,18 +87,17 @@ public class StageInitializer implements ApplicationListener<StageReadyEvent>{
 		public static final String FXML_MANAGE_CONNECTION = "manageConnection";
 		public static final String FXML_GENERAL_USER_BORDERPANE = "generalUseBorderPane";
 		
-		private static RootManager rootManager;
-		private static final LinkedHashMap<String, Resource> registeredResources = new LinkedHashMap<>(); 
+		private static final LinkedHashMap<String, Resource> registeredResources = new LinkedHashMap<>();
 		
-		private FXMLLoader fxmlLoader;
-		private Parent parent;
+		private static FXMLLoader fxmlLoader;
+		private static Parent parent;
 		
 		private RootManager() {
 			
 		}
 		
 		public static RootManager getRootManager() {
-			return rootManager != null ? rootManager : new RootManager(); 
+			return ROOT_MANAGER; 
 		}
 		
 		public void registerResource(String keyName, Resource resource) {

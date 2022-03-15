@@ -21,6 +21,7 @@
                <children>
                   <Button fx:id="uploadFilesButton" alignment="CENTER" mnemonicParsing="false" onAction="#handleUploadFiles" prefHeight="30.0" prefWidth="150.0" stylesheets="@../css/button.css" text="Browse" />
                   <Button fx:id="sendFilesButton" alignment="CENTER" mnemonicParsing="false" onAction="#handleSendFiles" prefHeight="30.0" prefWidth="150.0" stylesheets="@../css/button.css" text="Send file/s" />
+                  <Button fx:id="clearSelectedFilesButton" alignment="CENTER" mnemonicParsing="false" onAction="#handleClearSelectedFiles" prefHeight="30.0" prefWidth="150.0" stylesheets="@../css/button.css" text="Clear selected" />
                </children>
                <VBox.margin>
                   <Insets />

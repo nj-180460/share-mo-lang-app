@@ -1,6 +1,9 @@
 package org.sharemolangapp.smlapp.receiver;
 
 
+import java.io.BufferedInputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -10,6 +13,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
 import org.sharemolangapp.smlapp.receiver.ReceiverService.ReceiveOnClientHandler;
+import org.sharemolangapp.smlapp.util.ConfigConstant;
+import org.sharemolangapp.smlapp.util.GenericUtils;
 
 
 
@@ -18,16 +23,26 @@ class ReceiverNetwork {
 	private static boolean SERVER_RUNNING = false;
 	private static boolean CLIENT_CONNECTION_ESTABLISHED = false;
 	
+	private final ReceiverService receiverService;
+	
 	private ServerSocket serverSocket;
 	private ClientHandler clientHandler;
+	private ExecutorService clientRequestExec;
+	private ExecutorService clientMonitoringExec;
 	
-	ReceiverNetwork(){
-		
+	
+	
+	ReceiverNetwork(ReceiverService receiverService){
+		this.receiverService = receiverService;
 	}
 	
 	
-	boolean startServer(int port) {
-		return initializeServer(port);
+	boolean startServer() {
+		String portstr = String.valueOf(receiverService.getServerProperties().get("port"));
+		if(portstr != null && !portstr.equals("null")) {
+			return initializeServer(Integer.parseInt(portstr));
+		}
+		return false;
 	}
 	
 	
@@ -43,7 +58,7 @@ class ReceiverNetwork {
 			
 			try {
 				serverSocket = new ServerSocket(port);
-//				serverSocket.setSoTimeout((int)Duration.ofSeconds(30).toMillis());
+//				serverSocket.setSoTimeout(GenericUtils.CONNECTION_SO_TIMEOUT);
 				serverStarted = true;
 			} catch (IOException e) {
 				e.printStackTrace();
@@ -73,64 +88,144 @@ class ReceiverNetwork {
 	void waitingForClient(ReceiveOnClientHandler receiveOnClientHandler) {
 		
 		if(!CLIENT_CONNECTION_ESTABLISHED) {
-			ExecutorService execService = Executors.newSingleThreadExecutor();
-			execService.execute( () -> {
-				try {
-					Socket clientSocket = serverSocket.accept();
+			clientRequestExec = Executors.newSingleThreadExecutor();
+			clientRequestExec.execute( () -> {
+				
+				do {
+				
 					
-					clientHandler = new ClientHandler(clientSocket);
-					CLIENT_CONNECTION_ESTABLISHED = true;
-					
-					clientHandler.setReceiveOnClientHandler(receiveOnClientHandler);
-					
-					CLIENT_CONNECTION_ESTABLISHED = false;
-					
-				} catch (IOException e) {
-					e.printStackTrace();
-					CLIENT_CONNECTION_ESTABLISHED = false;
-					SERVER_RUNNING = false;
-				}
+					try (Socket clientSocket = serverSocket.accept()){
+						
+						clientHandler = new ClientHandler(clientSocket);
+						DataInputStream dataInputStream = clientHandler.getDataInputStream();
+						DataOutputStream dataOutputStream = clientHandler.getDataOutputStream();
+						
+						receiverService.getClientProperties().clear();
+						receiverService.getClientProperties().put("host", clientSocket.getInetAddress().getHostAddress());
+						
+						String clientRequestFirst = dataInputStream.readUTF();
+						
+						receiverService.setRequest(clientRequestFirst);
+						
+						if(receiverService.serverConfirmation()) {
+							
+							dataOutputStream.writeUTF(receiverService.getResponse());
+							dataOutputStream.flush();
+							
+							CLIENT_CONNECTION_ESTABLISHED = true;
+							monitorClientStatus(clientHandler);
+							clientHandler.setReceiveOnClientHandler(receiveOnClientHandler);
+							
+						} else {
+							
+							dataOutputStream.writeUTF(receiverService.getResponse());
+							dataOutputStream.flush();
+							
+						}
+						
+//						clientHandler = new ClientHandler(clientSocket);
+//						CLIENT_CONNECTION_ESTABLISHED = true;
+//						monitorClientStatus(clientHandler);
+//						clientHandler.setReceiveOnClientHandler(receiveOnClientHandler);
+						
+						receiverService.setRequest(ConfigConstant.NONE_RESPONSE);
+						CLIENT_CONNECTION_ESTABLISHED = false;
+						System.out.println("client ended");
+						
+					} catch (IOException e) {
+						e.printStackTrace();
+						CLIENT_CONNECTION_ESTABLISHED = false;
+					}
+				
+				} while(SERVER_RUNNING);
 				
 			});
-			execService.shutdown();
+			
+			clientRequestExec.shutdown();
+			
 		}
 		
-//		if(clientHandler != null) {
-//			if(!clientHandler.isActive()) {
-//				CLIENT_CONNECTION_ESTABLISHED = false;
-//			}
-//		}
+	}
+	
+	
+	private synchronized void monitorClientStatus(ClientHandler clientHandler) {
+		
+		clientMonitoringExec = Executors.newSingleThreadExecutor();
+		clientMonitoringExec.execute( () -> {
+			
+			while(clientHandler.isActive()) {
+				
+				if(!CLIENT_CONNECTION_ESTABLISHED || !SERVER_RUNNING) {
+					break;
+				}
+				
+				try {
+					Thread.sleep(1500);
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
+								
+			}
+			
+			receiverService.setRequest(ConfigConstant.NONE_RESPONSE);
+			
+			clientHandler.closeClientConnection();
+			CLIENT_CONNECTION_ESTABLISHED = false;
+			
+		});
+		
+		clientMonitoringExec.shutdown();
 	}
 	
 	
 	boolean isConnected() {
-		return (clientHandler != null ? clientHandler.isConnected() : false);
+		return (clientHandler != null ? clientHandler.isActive() : false);
 	}
 	
 	
 	
-	void closeConnection() {
+	synchronized void closeConnection() {
 		try {
-			
-			closeClientConnection();
 			
 			if(serverSocket != null) {
 				serverSocket.close();
 			}
 			
+			receiverService.setRequest(ConfigConstant.NONE_RESPONSE);
 			SERVER_RUNNING = false;
 			
 		} catch (IOException e) {
 			e.printStackTrace();
+			
+		} finally {
+			
+			closeClientConnection();
+			if(clientRequestExec != null) {
+				clientRequestExec.shutdownNow();
+			}
+			
+			if(clientMonitoringExec != null) {
+				clientMonitoringExec.shutdownNow();
+			}
+			
+			receiverService.setRequest(ConfigConstant.NONE_RESPONSE);
 			CLIENT_CONNECTION_ESTABLISHED = false;
 			SERVER_RUNNING = false;
+			
 		}
+		
 	}
 
 	
-	void closeClientConnection() {
+	synchronized void closeClientConnection() {
+		
 		if(clientHandler != null) {
 			clientHandler.closeClientConnection();
+			CLIENT_CONNECTION_ESTABLISHED = false;
+		}
+		
+		if(clientRequestExec != null) {
+			clientRequestExec.shutdownNow();
 		}
 	}
 	
@@ -140,36 +235,54 @@ class ReceiverNetwork {
 		
 		private final Socket clientSocket;
 		
+		private final DataInputStream dataInputStream;
+		private final DataOutputStream dataOutputStream;
+		private final BufferedInputStream bufferedInputStream;
 		private ReceiveOnClientHandler receiveOnClientHandler;
 		
 		
-		ClientHandler(Socket clientSocket) {
+		ClientHandler(Socket clientSocket) throws IOException {
 			this.clientSocket = clientSocket;
+			this.dataInputStream = new DataInputStream(clientSocket.getInputStream());
+			this.dataOutputStream = new DataOutputStream(clientSocket.getOutputStream());
+			this.bufferedInputStream = new BufferedInputStream(clientSocket.getInputStream());
 		}
 		
 		
 		void setReceiveOnClientHandler(ReceiveOnClientHandler receiveOnClientHandler) throws IOException {
 			this.receiveOnClientHandler = receiveOnClientHandler;
-			this.receiveOnClientHandler.setClientStreams(clientSocket.getInputStream(), clientSocket.getOutputStream());
-			this.receiveOnClientHandler.onRead(); // this should be in loop
+			this.receiveOnClientHandler.setClientStreams(dataInputStream, dataOutputStream, bufferedInputStream);
+			this.receiveOnClientHandler.onRead();
+		}
+		
+		
+		ReceiveOnClientHandler getReceiveOnClientHandler() {
+			return this.receiveOnClientHandler;
 		}
 		
 		
 		boolean isActive() {
-			return clientSocket != null ? clientSocket.isClosed() : false;
+			return !this.clientSocket.isClosed();
 		}
 		
 		
-		boolean isConnected() {
-			return clientSocket != null ? clientSocket.isConnected() : false;
+		DataInputStream getDataInputStream() {
+			return this.dataInputStream;
 		}
 		
+		DataOutputStream getDataOutputStream() {
+			return this.dataOutputStream;
+		}
 		
-		void closeClientConnection() {
+		BufferedInputStream getBufferedInputStream() {
+			return this.bufferedInputStream;
+		}
+		
+		synchronized void closeClientConnection() {
 			try {
 				
-				if(clientSocket != null) {
-					clientSocket.close();
+				if(this.clientSocket != null) {
+					this.clientSocket.close();
 				}
 				
 				CLIENT_CONNECTION_ESTABLISHED = false;

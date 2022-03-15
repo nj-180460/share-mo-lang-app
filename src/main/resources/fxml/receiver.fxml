@@ -58,7 +58,7 @@
             <FlowPane fx:id="labelConnectedTo" hgap="10.0" vgap="10.0">
                <children>
                   <Button fx:id="receiverManageConnectionButton" mnemonicParsing="false" onAction="#handlerReceiverManageConnection" text="Manage connection" />
-                  <Label text="Connected sender: " />
+                  <Label text="Connected sender:" />
                </children>
             </FlowPane>
          </children>

@@ -3,15 +3,24 @@ package org.sharemolangapp.smlapp.receiver;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.util.Optional;
 import java.util.Properties;
 import java.util.ResourceBundle;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 import org.sharemolangapp.smlapp.StageInitializer.RootManager;
+import org.sharemolangapp.smlapp.controller.ExceptionUI;
 import org.sharemolangapp.smlapp.controller.GeneralUseBorderPane;
+import org.sharemolangapp.smlapp.util.ConfigConstant;
+import org.sharemolangapp.smlapp.util.GenericUtils;
 import org.sharemolangapp.smlapp.util.QRCodeUtil;
 
 import com.google.zxing.WriterException;
 
+import javafx.application.Platform;
 import javafx.concurrent.Service;
 import javafx.concurrent.Task;
 import javafx.embed.swing.SwingFXUtils;
@@ -24,6 +33,7 @@ import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
+import javafx.scene.control.ButtonType;
 import javafx.scene.control.Label;
 import javafx.scene.control.ProgressIndicator;
 import javafx.scene.image.ImageView;
@@ -36,9 +46,10 @@ import javafx.scene.control.Alert.AlertType;
 public class ReceiverController implements Initializable{
 
 	
+	private static final RootManager rootManager = RootManager.getRootManager();
 	private static boolean TRANSFER_MODE = false;
-	
-	private final RootManager rootManager = RootManager.getRootManager();
+	private static boolean CLOSING_STAGE = false;
+	private static boolean CLOSING_SCENE = false;
 	
 //	private final ArrayList<ProgressIndicatorBar> selectedProgresBar = new ArrayList<>();
 	private ReceiverService receiverService;
@@ -64,7 +75,11 @@ public class ReceiverController implements Initializable{
 //            }
 //        });
 		
-		receiverService = new ReceiverService();
+		CLOSING_STAGE = false;
+		CLOSING_SCENE = false;
+		TRANSFER_MODE = false;
+		
+		receiverService = new ReceiverService(this);
 		initializeData();
 		
 //		handleListviewQueue(listOnline);
@@ -72,6 +87,7 @@ public class ReceiverController implements Initializable{
 	
 	
 	public void closeAll() {
+		CLOSING_SCENE = true;
 		receiverService.closeAll();
 	}
 	
@@ -80,6 +96,7 @@ public class ReceiverController implements Initializable{
 	private void initializeData() {
 		
 		Alert alertOn = new Alert(AlertType.NONE);
+		ExceptionUI exceptionUI = new ExceptionUI(alertOn);
 		
 		try {
 			
@@ -112,6 +129,7 @@ public class ReceiverController implements Initializable{
 						} catch (URISyntaxException | WriterException e) {
 							
 							e.printStackTrace();
+							exceptionUI.addExceptionStackTrace(e);
 							alertOn.setHeaderText("Failed to generate QR Code");
 							alertOn.setContentText(e.toString());
 							alertOn.setAlertType(AlertType.ERROR);
@@ -140,6 +158,11 @@ public class ReceiverController implements Initializable{
 			
 		} catch (IOException e) {
 			e.printStackTrace();
+			exceptionUI.addExceptionStackTrace(e);
+			alertOn.setHeaderText("Failed to load FXML resource");
+			alertOn.setContentText(e.toString());
+			alertOn.setAlertType(AlertType.ERROR);
+			alertOn.show();
 		}
 	}
 	
@@ -190,6 +213,37 @@ public class ReceiverController implements Initializable{
 	
 	
 	
+	boolean serverConfirmation() {
+		
+		Platform.runLater( () -> {
+			Alert alert = new Alert(AlertType.CONFIRMATION);
+			alert.setTitle("Confirmation");
+			alert.setHeaderText("Someone is trying to send files. Accept to receive those files.");
+			alert.setContentText("Accept?");
+			alert.setOnCloseRequest( event -> {
+				receiverService.setRequest(ConfigConstant.DECLINE_RESPONSE);
+				alert.close();
+			});
+			alert.showAndWait()
+				.filter( result -> result == ButtonType.OK)
+				.ifPresentOrElse(
+						result -> receiverService.setRequest(ConfigConstant.OK_RESPONSE),
+						() -> receiverService.setRequest(ConfigConstant.DECLINE_RESPONSE));
+		});
+		
+		while(receiverService.getResponse().equals(ConfigConstant.CLIENT_REQUESTING_RESPONSE)
+				&& receiverService.isConnected()) {
+			try {
+				Thread.sleep(500);
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+		}
+		
+		return receiverService.getResponse().equals(ConfigConstant.OK_RESPONSE);
+	}
+	
+	
 	
 	@FXML
 	private void handlerReceiverManageConnection(ActionEvent actionEvent) throws IOException {
@@ -198,6 +252,7 @@ public class ReceiverController implements Initializable{
         
         ManageConnection dialogController = fxmlLoader.getController();
         dialogController.setParentController(this);
+        dialogController.setReceiverService(receiverService);
         
         Scene scene = new Scene(fxmlParent, 400, 200);
         Stage stage = new Stage();
