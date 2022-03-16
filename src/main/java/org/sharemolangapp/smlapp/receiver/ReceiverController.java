@@ -57,14 +57,14 @@ public class ReceiverController implements Initializable{
 
 	
 	private static final RootManager rootManager = RootManager.getRootManager();
-	private static boolean TRANSFER_MODE = false;
 	private static boolean CLOSING_STAGE = false;
-	private static boolean CLOSING_SCENE = false;
 	
 	private final ObservableList<ProgressIndicatorBar> obsReceivedListView = FXCollections.observableArrayList();
 	
 	private ReceiverService receiverService;
+	
 	private WorkMonitor workMonitor;
+	private ProgressIndicatorBar withProgressBar;
 	
 	private GeneralUseBorderPane generalUseBorderPane;
 	@FXML private Button receiverManageConnectionButton;
@@ -79,10 +79,6 @@ public class ReceiverController implements Initializable{
 	@Override
 	public void initialize(URL location, ResourceBundle resources) {
 		
-		CLOSING_STAGE = false;
-		CLOSING_SCENE = false;
-		TRANSFER_MODE = false;
-		
 		receiverService = new ReceiverService(this);
 		initializeData();
 		
@@ -91,22 +87,6 @@ public class ReceiverController implements Initializable{
 		
 	}
 	
-	
-	public void closeAll() {
-		CLOSING_SCENE = true;
-		if(workMonitor != null) {
-			workMonitor.shutdownMonitoring();
-		}
-		receiverService.closeAll();
-	}
-	
-	
-	
-	void setConnectedToText(final String clientConnectedTo) {
-		Platform.runLater( () -> {
-			connectedToLabel.setText(clientConnectedTo == null ? "" : clientConnectedTo);
-		});
-	}
 	
 	
 	
@@ -242,7 +222,7 @@ public class ReceiverController implements Initializable{
 				alert.close();
 			});
 			alert.showAndWait()
-				.filter( result -> result == ButtonType.OK)
+				.filter(result -> result == ButtonType.OK)
 				.ifPresentOrElse(
 						result -> { 
 							receiverService.setRequest(ConfigConstant.OK_RESPONSE);
@@ -265,6 +245,28 @@ public class ReceiverController implements Initializable{
 		
 		return receiverService.getResponse().equals(ConfigConstant.OK_RESPONSE);
 	}
+	
+	
+	
+	
+	
+	public void closeAll() {
+		CLOSING_STAGE = true;
+		if(workMonitor != null) {
+			workMonitor.shutdownMonitoring();
+		}
+		receiverService.closeAll();
+	}
+	
+	
+	
+	void setConnectedToText(final String clientConnectedTo) {
+		Platform.runLater( () -> {
+			connectedToLabel.setText(clientConnectedTo == null ? "" : clientConnectedTo);
+		});
+	}
+	
+	
 	
 	
 	
@@ -301,6 +303,7 @@ public class ReceiverController implements Initializable{
 //		FXMLLoader fxmlLoader = rootManager.getFXMLLoader();
 //		HomeController init = fxmlLoader.getController();
 		scene.setRoot(fxmlParent);
+
 	}
 	
 	
@@ -312,9 +315,8 @@ public class ReceiverController implements Initializable{
 	
 	
 	void addMonitoringFile(File file, String fileSize) {
-
+		
 		workMonitor = new WorkMonitor(Long.parseLong(fileSize));
-		ProgressIndicatorBar withProgressBar = new ProgressIndicatorBar(workMonitor, Double.parseDouble(fileSize), file.getAbsolutePath());
 		
 		Service<Void> service = new Service<>() {
 
@@ -327,12 +329,10 @@ public class ReceiverController implements Initializable{
 					protected Void call() throws Exception {
 						
 						Platform.runLater( () -> {
+							withProgressBar = new ProgressIndicatorBar(workMonitor, Double.parseDouble(fileSize), file.getAbsolutePath());
 							obsReceivedListView.add(withProgressBar);
+							withProgressBar.startMonitoring();
 						});
-						
-						TRANSFER_MODE = true;
-						withProgressBar.startMonitoring();
-						TRANSFER_MODE = false;
 						
 						return null;
 					}
@@ -409,17 +409,22 @@ public class ReceiverController implements Initializable{
 				bar.setProgress(progress);
 			}
 			
-			bar.setMinHeight(text.getBoundsInLocal().getHeight() + DEFAULT_LABEL_PADDING * 2);
-			bar.setMinWidth (text.getBoundsInLocal().getWidth()  + DEFAULT_LABEL_PADDING * 2);
+			try {
+				bar.setMinHeight(text.getBoundsInLocal().getHeight() + DEFAULT_LABEL_PADDING * 2);
+				bar.setMinWidth (text.getBoundsInLocal().getWidth()  + DEFAULT_LABEL_PADDING * 2);
+			} catch(NullPointerException nullPointerEx) {
+				nullPointerEx.printStackTrace();
+			}
 		}
 		
 		private void startMonitoring() {
 		    workDone.monitorWorker( () -> {
 		    	String computedValue = GenericUtils.toMB(workDone.getWorkDone());
 		    	double progress = workDone.getWorkDone() / totalWork;
-		    	Platform.runLater( () -> {
-		    		syncProgress(progress, computedValue);
-		    	});
+		    	syncProgress(progress, computedValue);
+//		    	Platform.runLater( () -> {
+//		    		
+//		    	});
 		    });
 		}
 		
@@ -497,9 +502,9 @@ public class ReceiverController implements Initializable{
 						oldValue = workDone;
 						worker.work();
 					}
+					
 				}
 				
-				TRANSFER_MODE = false;
 			});
 			
 			exeService.shutdown();

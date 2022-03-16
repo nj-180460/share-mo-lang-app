@@ -86,14 +86,18 @@ public abstract class JSONFactory {
 	// settings class
 	public abstract static class Settings{
 		
+		public static final String OUTPUT_FOLDER_PNODE = "outputFolder"; 
+		
+		
 		private Settings() {
 			throw new UnsupportedOperationException(getClass().getName() + " is unavailable. Use static methods only");
 		}
 		
-		private static JsonNode getSettings() {
+		
+		private static JsonNode getSettings(String jsonPathFile) {
 			JsonNode jsonNode = null;
 			try {
-				jsonNode = getJsonNodeFile(ConfigConstant.getJsonDirFullPath(ConfigConstant.PREFERENCES_JSON_FILE));
+				jsonNode = getJsonNodeFile(jsonPathFile);
 			} catch (IOException e) {
 				// TEMPORARY
 				e.printStackTrace();
@@ -101,13 +105,14 @@ public abstract class JSONFactory {
 			return jsonNode;
 		}
 		
-		private static boolean setSettings(JsonNode newSettingsJsonNode) {
-			return setJsonNodeFile(newSettingsJsonNode, ConfigConstant.getJsonDirFullPath(ConfigConstant.PREFERENCES_JSON_FILE));
+		private static boolean setSettings(String jsonPathFile, JsonNode newSettingsJsonNode) {
+			return setJsonNodeFile(newSettingsJsonNode, jsonPathFile);
 		}
 		
 		
-		public static ArrayList<String> getArrayOnObject(String[] paths, String path) {
-			JsonNode dosagesNode = getNodePath(paths, path, getSettings());
+		
+		public static ArrayList<String> getArrayOnObject(String jsonPathFile, String[] paths, String path) {
+			JsonNode dosagesNode = getNodePath(paths, path, getSettings(jsonPathFile));
 			List<String> dosagesList = 
 					StreamSupport.stream(dosagesNode.spliterator(), false)
 						.map( e -> e.asText() )
@@ -115,11 +120,11 @@ public abstract class JSONFactory {
 			return new ArrayList<>(dosagesList);
 		}
 		
-		public static void setArrayOnObject(String[]paths, String path, ArrayList<String> newList) {
-			JsonNode locatedNode = getSettings();
+		public static void setArrayOnObject(String jsonPathFile, String[]paths, String path, ArrayList<String> newList) {
+			JsonNode locatedNode = getSettings(jsonPathFile);
 			ArrayNode dosageArr = objectMapper.valueToTree(newList);
 			getObjectNode(paths, (ObjectNode)locatedNode).set(path, dosageArr);;
-			setSettings(locatedNode);
+			setSettings(jsonPathFile, locatedNode);
 		}
 		
 		
@@ -146,20 +151,20 @@ public abstract class JSONFactory {
 		 *  top/parent node
 		 * @return parent json node
 		 */
-		public static String getJsonParentValue(String parentNode) {
-			return getSettings().get(parentNode).asText();
+		public static String getJsonParentValue(String jsonPathFile, String parentNode) {
+			return getSettings(jsonPathFile).get(parentNode).asText();
 		}
 		
-		public static void setJsonParentValue(String parentNode, String value) {
-			JsonNode locatedNode = getSettings();
+		public static void setJsonParentValue(String jsonPathFile, String parentNode, String value) {
+			JsonNode locatedNode = getSettings(jsonPathFile);
 			((ObjectNode)locatedNode).put(parentNode, value);
-			setSettings(locatedNode);
+			setSettings(jsonPathFile, locatedNode);
 		}
 		
-		public static void removeJsonParentValue(String parentNode) {
-			JsonNode locatedNode = getSettings();
+		public static void removeJsonParentValue(String jsonPathFile, String parentNode) {
+			JsonNode locatedNode = getSettings(jsonPathFile);
 			((ObjectNode)locatedNode).remove(parentNode);
-			setSettings(locatedNode);
+			setSettings(jsonPathFile, locatedNode);
 		}
 	}
 }

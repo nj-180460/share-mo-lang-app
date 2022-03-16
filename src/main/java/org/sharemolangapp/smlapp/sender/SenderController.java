@@ -2,8 +2,6 @@ package org.sharemolangapp.smlapp.sender;
 
 import java.io.File;
 import java.io.IOException;
-import java.net.SocketException;
-import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
@@ -22,7 +20,6 @@ import org.sharemolangapp.smlapp.controller.GeneralUseBorderPane;
 import org.sharemolangapp.smlapp.layer.Workable;
 import org.sharemolangapp.smlapp.util.GenericUtils;
 
-import com.google.zxing.WriterException;
 
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
@@ -273,12 +270,6 @@ public class SenderController implements Initializable {
 		TRANSFER_MODE = false;
 	}
 	
-	
-	
-//	private String toMB(double value) {
-//		double computedValue =  (value/1024)/1024;
-//		return String.format("%,.2f", computedValue)+"MB";
-//	}
 	
 	
 	

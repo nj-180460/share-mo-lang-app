@@ -17,18 +17,21 @@ public abstract class ConfigConstant {
 	public static final String NONE_RESPONSE = "NONE";
 	public static final String FILENAME_EMPTY_RESPONSE = "FILENAME_EMPTY";
 	public static final String CONNECTION_LOST_RESPONSE = "CONNECTION_LOST";
-	// json
+	
+	// json files
 	public static final String PREFERENCES_JSON_FILE = "preferences.json";
 	
-	
-	// directories
-	public static final StringBuilder LOCAL_MAIN_DIR = new StringBuilder();
-	static {
-		LOCAL_MAIN_DIR.append(System.getProperty("user.home")).append(File.separator);
-		LOCAL_MAIN_DIR.append("Documents").append(File.separator);
-		LOCAL_MAIN_DIR.append("smlapp").append(File.separator);
-	}
+	// resources dir
+	public static final String APP_DIR = "preferences" + File.separator;
 	public static final String JSON_DIR = "json/";
+	
+	// local dir
+	public static final StringBuilder LOCAL_DEFAULT_OUTPUT_DIR = new StringBuilder();
+	static {
+		LOCAL_DEFAULT_OUTPUT_DIR.append(System.getProperty("user.home")).append(File.separator);
+		LOCAL_DEFAULT_OUTPUT_DIR.append("Downloads").append(File.separator);
+		LOCAL_DEFAULT_OUTPUT_DIR.append("smlapp").append(File.separator);
+	}
 	
 	
 	
@@ -44,8 +47,14 @@ public abstract class ConfigConstant {
 	
 	public static String getJsonDirFullPath(String filename) {
 		return (filename != null
-				? LOCAL_MAIN_DIR+JSON_DIR.replace("/",File.separator)+filename
-				: LOCAL_MAIN_DIR+JSON_DIR.replace("/",File.separator));
+				? LOCAL_DEFAULT_OUTPUT_DIR+JSON_DIR.replace("/",File.separator)+filename
+				: LOCAL_DEFAULT_OUTPUT_DIR+JSON_DIR.replace("/",File.separator));
+	}
+	
+	public static String getJsonRelativePath(String filename) {
+		return APP_DIR + (filename != null
+				? JSON_DIR.replace("/",File.separator)+filename
+				: JSON_DIR.replace("/",File.separator));
 	}
 
 	

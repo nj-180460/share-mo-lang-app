@@ -1,5 +1,6 @@
 package org.sharemolangapp.smlapp.util;
 
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URISyntaxException;
@@ -21,7 +22,7 @@ public final class ResourcesFileHandler {
 	
 	public ResourcesFileHandler() {
 		dirMap = new LinkedHashMap<>();
-		dirMap.put(ConfigConstant.JSON_DIR, Paths.get(ConfigConstant.LOCAL_MAIN_DIR+ConfigConstant.JSON_DIR));
+		dirMap.put(ConfigConstant.JSON_DIR, Paths.get(ConfigConstant.getJsonRelativePath(null)));
 	}
 	
 	
@@ -29,7 +30,8 @@ public final class ResourcesFileHandler {
 	public boolean copyResourcesToLocal() throws IOException {
 		try {
 			
-			if(createDirectories(Paths.get(ConfigConstant.LOCAL_MAIN_DIR.toString()))) {
+			createDirectories(Paths.get(ConfigConstant.getJsonRelativePath(null)));
+			if(createDirectories(Paths.get(ConfigConstant.LOCAL_DEFAULT_OUTPUT_DIR.toString()))) {
 				
 				// create directories to local machine disk
 				dirMap.entrySet().stream()
@@ -49,12 +51,24 @@ public final class ResourcesFileHandler {
 				return true;
 			}
 			
-		} catch(IOException | URISyntaxException | NoSuchAlgorithmException ioException) {
+		} catch(IOException | URISyntaxException ioException) {
 			ioException.printStackTrace();
 			throw new IOException(ioException);
 		}
 		return false;
 	}
+	
+	
+	public static boolean createDir(String dir) {
+		boolean isCreated = false;
+		try {
+			Files.createDirectories(Paths.get(dir));
+			isCreated = true;
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		return isCreated;
+	} 
 	
 	
 	public static Path getResourceFile(String resourceFilename) throws URISyntaxException {
@@ -88,6 +102,7 @@ public final class ResourcesFileHandler {
 		return isCreated;
 	}
 	
+	
 	/**
 	 * Do nothing pag yaon na json file na nag i-exist local.
 	 * Your only option is to delete that file from local and run the program again
@@ -98,7 +113,7 @@ public final class ResourcesFileHandler {
 	 * @throws NoSuchAlgorithmException 
 	 * */
 	private boolean copyResourceToLocal(InputStream sourceInputStream, Path orResourcePathFile, Path localPath, String file)
-			throws IOException, URISyntaxException, NoSuchAlgorithmException {
+			throws IOException, URISyntaxException {
 		
 		Path localPathFile = localPath.resolve(file);
 		
@@ -113,10 +128,22 @@ public final class ResourcesFileHandler {
         		Files.copy(orResourcePathFile, localPathFile, StandardCopyOption.REPLACE_EXISTING);
         	}
 			
+			defaultValue(localPathFile);
+			
 		}
 		
 		return Files.exists(localPathFile);
 	}
+	
+	
+	
+	private void defaultValue(Path localPathFile) {
+		JSONFactory.Settings.setJsonParentValue(
+				ConfigConstant.getJsonRelativePath(ConfigConstant.PREFERENCES_JSON_FILE),
+				JSONFactory.Settings.OUTPUT_FOLDER_PNODE,
+				ConfigConstant.LOCAL_DEFAULT_OUTPUT_DIR.toString());
+	}
+	
 	
 	
 	
@@ -131,14 +158,17 @@ public final class ResourcesFileHandler {
 	
 	
 	public void copyJsonResourcesToLocal(String resourcePath, Path localPath) 
-			throws IOException, URISyntaxException, NoSuchAlgorithmException {
+			throws IOException, URISyntaxException{
 		ArrayList<String> jsonFileList = new ArrayList<>();
 		jsonFileList.add(ConfigConstant.PREFERENCES_JSON_FILE);
+		
 		for(String jsonFile : jsonFileList) {
 			copyResourceToLocal(getResourcePathFileStream(resourcePath, jsonFile), null, localPath, jsonFile);
 		}
 	}
 
+	
+	
 	
 	
 //	public void copyImageResourcesToLocal(String resourcePath, Path localPath) 

@@ -3,20 +3,18 @@ package org.sharemolangapp.smlapp.receiver;
 import java.io.BufferedInputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
-import java.io.EOFException;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.net.UnknownHostException;
 import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.Properties;
 
 import org.sharemolangapp.smlapp.receiver.ReceiverController.WorkMonitor;
 import org.sharemolangapp.smlapp.util.ConfigConstant;
 import org.sharemolangapp.smlapp.util.GenericUtils;
+import org.sharemolangapp.smlapp.util.JSONFactory;
 import org.sharemolangapp.smlapp.util.NetworkUtility;
 
 
@@ -201,15 +199,10 @@ class ReceiverService {
 		private void readFile(String fileName, String fileSize, InputStream inputStream) throws IOException{
 
 			StringBuilder receivingFolder = new StringBuilder();
-			receivingFolder.append(System.getProperty("user.home"));
-			receivingFolder.append(File.separator);
-			receivingFolder.append("Desktop");
-			receivingFolder.append(File.separator);
-			receivingFolder.append("received");
-			receivingFolder.append(File.separator);
-			
-			Files.createDirectories(Paths.get(receivingFolder.toString())); // TEMPORARY ****** USE PREFERENCES
-			
+			receivingFolder.append(
+					JSONFactory.Settings.getJsonParentValue(
+						ConfigConstant.getJsonRelativePath(ConfigConstant.PREFERENCES_JSON_FILE),
+						JSONFactory.Settings.OUTPUT_FOLDER_PNODE));
 			receivingFolder.append(fileName);
 			
 	        File receivingFile = new File(receivingFolder.toString());

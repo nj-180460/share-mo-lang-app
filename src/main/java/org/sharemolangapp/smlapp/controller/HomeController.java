@@ -5,14 +5,18 @@ import java.net.URL;
 import java.util.ResourceBundle;
 
 import org.sharemolangapp.smlapp.StageInitializer.RootManager;
+import org.sharemolangapp.smlapp.preferences.PreferencesController;
 import org.sharemolangapp.smlapp.receiver.ReceiverController;
+import org.sharemolangapp.smlapp.sender.ConnectionProperties;
 import org.sharemolangapp.smlapp.sender.SenderController;
 import org.sharemolangapp.smlapp.util.ConfigConstant;
+import org.sharemolangapp.smlapp.util.ResourcesFileHandler;
 import org.springframework.stereotype.Component;
 
 import javafx.application.Platform;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
+import javafx.fxml.FXMLLoader;
 import javafx.fxml.Initializable;
 import javafx.scene.Node;
 import javafx.scene.Parent;
@@ -22,6 +26,7 @@ import javafx.scene.control.MenuBar;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.layout.BorderPane;
+import javafx.stage.Modality;
 import javafx.stage.Stage;
 
 
@@ -35,6 +40,12 @@ public class HomeController implements Initializable {
 	
 	@Override
 	public void initialize(URL location, ResourceBundle resources) {
+		ResourcesFileHandler resourcesFileHandler = new ResourcesFileHandler();
+		try {
+			resourcesFileHandler.copyResourcesToLocal();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 		initMenu();
 	}
 	
@@ -109,7 +120,29 @@ public class HomeController implements Initializable {
 	private void menuPreferences(MenuItem menuPref) {
 		menuPref.setOnAction( (event) -> {
 			
+			try {
+				preferencesController();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+			
 		});
+	}
+	
+	
+	private void preferencesController() throws IOException {
+		FXMLLoader fxmlLoader = new FXMLLoader(rootManager.getRegisteredResources().get(RootManager.FXML_PREFERENCES).getURL());
+        Parent fxmlParent = fxmlLoader.load();
+        
+        PreferencesController dialogController = fxmlLoader.getController();
+        
+        Scene scene = new Scene(fxmlParent, 400, 200);
+        Stage stage = new Stage();
+        
+        stage.setOnCloseRequest((eventHandle) -> stage.close());
+        stage.initModality(Modality.APPLICATION_MODAL);
+        stage.setScene(scene);
+        stage.showAndWait();
 	}
 	
 	
@@ -118,5 +151,8 @@ public class HomeController implements Initializable {
 			Platform.exit();
 		});
 	}
+	
+	
+	
 	
 }
