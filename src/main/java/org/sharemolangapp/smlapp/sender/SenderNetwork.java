@@ -47,11 +47,9 @@ class SenderNetwork {
 		isConnected = !socket.isClosed();
 		
 		if(isConnected) {
-			if(!isTest) { 
+			if(!isTest) {
 				isConnected = requestServerAcceptance(socket);
 			}
-//			monitorServerConnection();
-//			sendOnServerHandler.setStreams(socket.getInputStream(), socket.getOutputStream());
 		}
 		
 		return isConnected;
@@ -70,16 +68,25 @@ class SenderNetwork {
 				
 				try {
 					
+					StringBuilder initialCommunicationData = new StringBuilder();
+					initialCommunicationData.append(ConfigConstant.CLIENT_REQUESTING_RESPONSE);
+					initialCommunicationData.append(":");
+					initialCommunicationData.append(senderService.getYourName());
+
 					DataOutputStream dataOutputStream = new DataOutputStream(socket.getOutputStream());
-					dataOutputStream.writeUTF(ConfigConstant.CLIENT_REQUESTING_RESPONSE);
+					dataOutputStream.writeUTF(initialCommunicationData.toString());
 					dataOutputStream.flush();
 					
 					DataInputStream dataInputStream = new DataInputStream(socket.getInputStream());
 					String serverResponse = dataInputStream.readUTF();
+					String []deconServerResponse = serverResponse.split(":");
+					String response = deconServerResponse[0];
+					String serverName = deconServerResponse[1];
 					
-					if(serverResponse.equals(ConfigConstant.OK_RESPONSE)) {
+					if(response.equals(ConfigConstant.OK_RESPONSE)) {
 						senderService.setServerAccepted(true);
 						sendOnServerHandler.setStreams(socket.getInputStream(), socket.getOutputStream());
+						senderService.getServerProperties().put("serverName", serverName);
 					} else {
 						senderService.setServerAccepted(false);
 						socket.close();
@@ -99,9 +106,10 @@ class SenderNetwork {
 			
 		});
 		
-		rqtServerAccpExecutor.shutdown();
-		
 		Boolean isAccepted = rqtServerAccpFuture.get();
+		
+		rqtServerAccpExecutor.shutdown();
+		rqtServerAccpExecutor.shutdownNow();
 		
 		return isAccepted;
 	}

@@ -31,8 +31,7 @@ public class ConnectionProperties {
 		
 		String host = String.valueOf(this.senderService.getServerProperties().get("host"));
 		String port = String.valueOf(this.senderService.getServerProperties().get("port"));
-		
-		labelServerName.setText("Some server");
+		String serverName = String.valueOf(this.senderService.getServerProperties().get("serverName"));
 		
 		if((host == null || host.isBlank()) && (port == null || port.isBlank())) {
 			
@@ -41,6 +40,7 @@ public class ConnectionProperties {
 		} else {
 			
 			labelHostAddress.setText(host + ":" + port);
+			labelServerName.setText(serverName);
 			labelServerStatus.setText("Connected and active");
 			
 		}
@@ -65,6 +65,7 @@ public class ConnectionProperties {
 	private void handleReconnect(ActionEvent actionEvent) {
 		String host = String.valueOf(senderService.getServerProperties().get("host"));
 		String port = String.valueOf(senderService.getServerProperties().get("port"));
+		String serverName = String.valueOf(senderService.getServerProperties().get("serverName"));
 		
 		if((host == null || host.isBlank()) && (port == null || port.isBlank())) {
 			
@@ -83,7 +84,7 @@ public class ConnectionProperties {
 			} else {
 				
 				if(senderController.connect()) {
-					labelServerName.setText("Some server");
+					labelServerName.setText(serverName);
 					labelHostAddress.setText(host + ":" + port);
 					labelServerStatus.setText("Connected and active");
 				} else {

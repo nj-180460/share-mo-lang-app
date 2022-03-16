@@ -10,7 +10,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import org.sharemolangapp.smlapp.StageInitializer.RootManager;
-import org.sharemolangapp.smlapp.controller.ExceptionUI;
+import org.sharemolangapp.smlapp.controller.ExceptionExpandedUI;
 import org.sharemolangapp.smlapp.controller.GeneralUseBorderPane;
 import org.sharemolangapp.smlapp.layer.Workable;
 import org.sharemolangapp.smlapp.util.ConfigConstant;
@@ -20,6 +20,9 @@ import org.sharemolangapp.smlapp.util.QRCodeUtil;
 import com.google.zxing.WriterException;
 
 import javafx.application.Platform;
+import javafx.beans.property.ReadOnlyObjectProperty;
+import javafx.beans.value.ChangeListener;
+import javafx.beans.value.ObservableValue;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.concurrent.Service;
@@ -62,7 +65,6 @@ public class ReceiverController implements Initializable{
 	private final ObservableList<ProgressIndicatorBar> obsReceivedListView = FXCollections.observableArrayList();
 	
 	private ReceiverService receiverService;
-	
 	private WorkMonitor workMonitor;
 	private ProgressIndicatorBar withProgressBar;
 	
@@ -93,7 +95,7 @@ public class ReceiverController implements Initializable{
 	private void initializeData() {
 		
 		Alert alertOn = new Alert(AlertType.NONE);
-		ExceptionUI exceptionUI = new ExceptionUI(alertOn);
+		ExceptionExpandedUI exceptionUI = new ExceptionExpandedUI(alertOn);
 		
 		try {
 			
@@ -109,7 +111,7 @@ public class ReceiverController implements Initializable{
 							
 			        		receiverService.setUpServerProperties();
 							receiverService.startServer();
-							receiverService.startWaitingForClient();
+							receiverService.startClientService();
 							
 							return null;
 						}
@@ -212,10 +214,12 @@ public class ReceiverController implements Initializable{
 	
 	boolean serverConfirmation() {
 		
+		String clientName = receiverService.getClientProperties().get("clientName").toString();
+		
 		Platform.runLater( () -> {
 			Alert alert = new Alert(AlertType.CONFIRMATION);
 			alert.setTitle("Confirmation");
-			alert.setHeaderText("Someone is trying to send files. Accept to receive those files.");
+			alert.setHeaderText(clientName + " is trying to send files. Accept to receive those files.");
 			alert.setContentText("Accept?");
 			alert.setOnCloseRequest( event -> {
 				receiverService.setRequest(ConfigConstant.DECLINE_RESPONSE);
@@ -226,7 +230,7 @@ public class ReceiverController implements Initializable{
 				.ifPresentOrElse(
 						result -> { 
 							receiverService.setRequest(ConfigConstant.OK_RESPONSE);
-							setConnectedToText("Connected: "+ receiverService.getClientProperties().get("host").toString());
+							setConnectedToText("Connected: "+ clientName);
 						},
 						() -> {
 							receiverService.setRequest(ConfigConstant.DECLINE_RESPONSE);
@@ -339,7 +343,6 @@ public class ReceiverController implements Initializable{
 					
 				};
 			}
-			
 		};
 		
 		service.start();
@@ -361,6 +364,22 @@ public class ReceiverController implements Initializable{
 		
 		MultipleSelectionModel<ProgressIndicatorBar> multiSelectionModel = listviewQueue.getSelectionModel();
 		multiSelectionModel.setSelectionMode(SelectionMode.MULTIPLE);
+		
+		ReadOnlyObjectProperty<ProgressIndicatorBar> readOnlyProp = multiSelectionModel.selectedItemProperty();
+		readOnlyProp.addListener(new ChangeListener<ProgressIndicatorBar>() {
+
+			@Override
+			public void changed(ObservableValue<? extends ProgressIndicatorBar> observable,
+					ProgressIndicatorBar oldValue, ProgressIndicatorBar newValue) {
+				
+				ProgressIndicatorBar selectedFile = multiSelectionModel.getSelectedItem();
+				if(selectedFile.isDone()) {
+					receiverService.openFileExplorerLocation(selectedFile.getPathFile());
+				}
+				
+			}
+			
+		});
 	}
 	
 	
@@ -381,24 +400,34 @@ public class ReceiverController implements Initializable{
 		private final ProgressBar bar  = new ProgressBar();
 		private final Text text = new Text();
 		private final String labelFormatSpecifier;
-		private final String fileName;
+		private final String pathFile;
 
 		
 		ProgressIndicatorBar(final WorkMonitor workDone, final double totalWork, final String labelFormatSpecifier) {
 			this.workDone  = workDone;
 		    this.totalWork = totalWork;
 		    this.labelFormatSpecifier = "(%s/"+GenericUtils.toMB(totalWork)+") "+labelFormatSpecifier;
-		    this.fileName = labelFormatSpecifier;
+		    this.pathFile = labelFormatSpecifier;
 		    
-		    text.setTextAlignment(TextAlignment.LEFT);
-		    text.setText(String.format(this.labelFormatSpecifier, GenericUtils.toMB(Math.ceil(workDone.getWorkDone()))));
-		    bar.setMaxWidth(Double.MAX_VALUE); // allows the progress bar to expand to fill available horizontal space.
-		    bar.setStyle("-fx-accent: #0F0;");
-		    bar.setProgress(workDone.getWorkDone() / totalWork);
+		    this.text.setTextAlignment(TextAlignment.LEFT);
+		    this.text.setText(String.format(this.labelFormatSpecifier, GenericUtils.toMB(Math.ceil(workDone.getWorkDone()))));
+		    this.bar.setMaxWidth(Double.MAX_VALUE); // allows the progress bar to expand to fill available horizontal space.
+		    this.bar.setStyle("-fx-accent: #0F0;");
+		    this.bar.setProgress(workDone.getWorkDone() / totalWork);
 		    
-		    getChildren().setAll(bar, text);
+		    getChildren().setAll(this.bar, text);
 		}
 
+		
+		String getPathFile() {
+			return pathFile;
+		}
+		
+		boolean isDone() {
+			return workDone.getWorkDone() == (long)totalWork;
+		}
+		
+		
 		// synchronizes the progress indicated with the work done.
 		private void syncProgress(double progress, String computedWorkDone) {
 			if (workDone == null || totalWork == 0) {
@@ -422,9 +451,6 @@ public class ReceiverController implements Initializable{
 		    	String computedValue = GenericUtils.toMB(workDone.getWorkDone());
 		    	double progress = workDone.getWorkDone() / totalWork;
 		    	syncProgress(progress, computedValue);
-//		    	Platform.runLater( () -> {
-//		    		
-//		    	});
 		    });
 		}
 		

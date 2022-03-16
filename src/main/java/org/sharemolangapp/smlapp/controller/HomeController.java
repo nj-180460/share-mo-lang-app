@@ -7,7 +7,6 @@ import java.util.ResourceBundle;
 import org.sharemolangapp.smlapp.StageInitializer.RootManager;
 import org.sharemolangapp.smlapp.preferences.PreferencesController;
 import org.sharemolangapp.smlapp.receiver.ReceiverController;
-import org.sharemolangapp.smlapp.sender.ConnectionProperties;
 import org.sharemolangapp.smlapp.sender.SenderController;
 import org.sharemolangapp.smlapp.util.ConfigConstant;
 import org.sharemolangapp.smlapp.util.ResourcesFileHandler;

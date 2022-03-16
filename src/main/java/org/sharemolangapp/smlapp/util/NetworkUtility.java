@@ -49,7 +49,7 @@ public abstract class NetworkUtility {
 		do{
 			int randPortPicked = EPHEMERAL_PORT_RANGE_LOW + rand.nextInt(EPHEMERAL_PORT_RANGE_HIGH - EPHEMERAL_PORT_RANGE_LOW);
 			try (ServerSocket serverSocket = new ServerSocket(randPortPicked)) {
-		        Optional<ServerSocket> availablePorts = Optional.of(serverSocket);
+		        Optional<ServerSocket> availablePorts = Optional.ofNullable(serverSocket);
 		        if(availablePorts.isPresent() && (serverSocket.getLocalPort() == randPortPicked)) {
 		        	return randPortPicked;
 		        }

@@ -142,6 +142,10 @@ public final class ResourcesFileHandler {
 				ConfigConstant.getJsonRelativePath(ConfigConstant.PREFERENCES_JSON_FILE),
 				JSONFactory.Settings.OUTPUT_FOLDER_PNODE,
 				ConfigConstant.LOCAL_DEFAULT_OUTPUT_DIR.toString());
+		JSONFactory.Settings.setJsonParentValue(
+				ConfigConstant.getJsonRelativePath(ConfigConstant.PREFERENCES_JSON_FILE),
+				JSONFactory.Settings.YOUR_NAME_PNODE,
+				NetworkUtility.getMachineIPv4Address().getHostName());
 	}
 	
 	

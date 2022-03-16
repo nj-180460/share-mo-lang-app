@@ -14,7 +14,6 @@ import java.util.concurrent.Future;
 
 import org.sharemolangapp.smlapp.receiver.ReceiverService.ReceiveOnClientHandler;
 import org.sharemolangapp.smlapp.util.ConfigConstant;
-import org.sharemolangapp.smlapp.util.GenericUtils;
 
 
 
@@ -99,16 +98,25 @@ class ReceiverNetwork {
 						DataInputStream dataInputStream = clientHandler.getDataInputStream();
 						DataOutputStream dataOutputStream = clientHandler.getDataOutputStream();
 						
-						receiverService.getClientProperties().clear();
-						receiverService.getClientProperties().put("host", clientSocket.getInetAddress().getHostAddress());
-						
 						String clientRequestFirst = dataInputStream.readUTF();
+						String []deconsClientRequestFirst = clientRequestFirst.split(":");
+						String clientRequest = deconsClientRequestFirst[0];
+						String clientName = deconsClientRequestFirst[1];
 						
-						receiverService.setRequest(clientRequestFirst);
+						receiverService.getClientProperties().put("host", clientSocket.getInetAddress().getHostAddress());
+						receiverService.getClientProperties().put("clientName", clientName);
+						
+						receiverService.setRequest(clientRequest);
+						
+						StringBuilder responseInfo = new StringBuilder();
 						
 						if(receiverService.serverConfirmation()) {
 							
-							dataOutputStream.writeUTF(receiverService.getResponse());
+							responseInfo.append(receiverService.getResponse());
+							responseInfo.append(":");
+							responseInfo.append(receiverService.getServerProperties().get("serverName").toString());
+							
+							dataOutputStream.writeUTF(responseInfo.toString());
 							dataOutputStream.flush();
 							
 							CLIENT_CONNECTION_ESTABLISHED = true;
@@ -117,7 +125,11 @@ class ReceiverNetwork {
 							
 						} else {
 							
-							dataOutputStream.writeUTF(receiverService.getResponse());
+							responseInfo.append(receiverService.getResponse());
+							responseInfo.append(":");
+							responseInfo.append(receiverService.getServerProperties().get("serverName").toString());
+							
+							dataOutputStream.writeUTF(responseInfo.toString());
 							dataOutputStream.flush();
 							
 						}
@@ -129,6 +141,7 @@ class ReceiverNetwork {
 						
 						receiverService.setRequest(ConfigConstant.NONE_RESPONSE);
 						CLIENT_CONNECTION_ESTABLISHED = false;
+						receiverService.getClientProperties().clear();
 						System.out.println("client ended");
 						
 					} catch (IOException e) {
@@ -169,7 +182,6 @@ class ReceiverNetwork {
 			receiverService.setRequest(ConfigConstant.NONE_RESPONSE);
 			
 			clientHandler.closeClientConnection();
-			CLIENT_CONNECTION_ESTABLISHED = false;
 			
 		});
 		

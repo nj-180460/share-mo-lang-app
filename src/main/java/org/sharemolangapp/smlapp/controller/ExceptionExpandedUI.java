@@ -11,11 +11,11 @@ import javafx.scene.layout.Priority;
 
 
 
-public class ExceptionUI {
+public class ExceptionExpandedUI {
 	
 	private Alert alert;
 	
-	public ExceptionUI(Alert alert) {
+	public ExceptionExpandedUI(Alert alert) {
 		this.alert = alert;
 	}
 	

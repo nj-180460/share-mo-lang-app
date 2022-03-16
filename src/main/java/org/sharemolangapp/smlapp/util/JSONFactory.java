@@ -86,7 +86,8 @@ public abstract class JSONFactory {
 	// settings class
 	public abstract static class Settings{
 		
-		public static final String OUTPUT_FOLDER_PNODE = "outputFolder"; 
+		public static final String YOUR_NAME_PNODE = "yourName";
+		public static final String OUTPUT_FOLDER_PNODE = "outputFolder";
 		
 		
 		private Settings() {

@@ -28,6 +28,7 @@ class ReceiverService {
 	private final Properties serverProperties;
 	private final Properties clientProperties;
 	private final ReceiveOnClientHandler receiveOnClientHandler;
+	private final String yourName;
 	
 	private String feedback;
 	
@@ -39,6 +40,9 @@ class ReceiverService {
 		this.clientProperties = new Properties();
 		this.receiveOnClientHandler = new ReceiveOnClientHandler();
 		this.feedback = ConfigConstant.NONE_RESPONSE;
+		this.yourName = JSONFactory.Settings.getJsonParentValue(
+				ConfigConstant.getJsonRelativePath(ConfigConstant.PREFERENCES_JSON_FILE),
+				JSONFactory.Settings.YOUR_NAME_PNODE);
 	}
 	
 	
@@ -53,6 +57,7 @@ class ReceiverService {
 		
 		serverProperties.put("host", host);
 		serverProperties.put("port", port);
+		serverProperties.put("serverName", yourName);
 		
 	}
 	
@@ -76,7 +81,7 @@ class ReceiverService {
 	}
 	
 	
-	void startWaitingForClient() {
+	void startClientService() {
 		receiverNetwork.waitingForClient(receiveOnClientHandler);
 	}
 	
@@ -118,7 +123,7 @@ class ReceiverService {
 	
 	
 	
-	public void openFileExplorerLocation(String absolutePath) {
+	void openFileExplorerLocation(String absolutePath) {
 		
 		if(GenericUtils.IS_WINDOWS) {
 			try {
@@ -156,7 +161,8 @@ class ReceiverService {
 		// 3 way handshake confirmation/verification
 		void onRead() throws IOException {
 			
-			while((NUMBER_OF_FILES = dataInputStream.readInt()) >= 0) {
+			// code 1
+			while((NUMBER_OF_FILES = dataInputStream.readInt()) >= 0){
 				dataOutputStream.writeInt(NUMBER_OF_FILES);
 	            dataOutputStream.flush();
 
@@ -171,6 +177,25 @@ class ReceiverService {
 	                }
 	            }
 			}
+			
+			// code 2 - preferred, unless OEFException solved
+//			while(dataInputStream.available() > 0) { // this resolve OEFException being thrown, pero diri gud ma-solve hays
+//				if((NUMBER_OF_FILES = dataInputStream.readInt()) >= 0){
+//					dataOutputStream.writeInt(NUMBER_OF_FILES);
+//		            dataOutputStream.flush();
+//	
+//		            while(NUMBER_OF_FILES > 0){
+//		            	
+//		                onWaitFile();
+//	
+//		                NUMBER_OF_FILES--;
+//		                if(NUMBER_OF_FILES > 0){
+//		                    dataOutputStream.writeInt(NUMBER_OF_FILES);
+//		                    dataOutputStream.flush();
+//		                }
+//		            }
+//				}
+//			}
 			
 		}
 		
@@ -196,7 +221,7 @@ class ReceiverService {
 		
 		
 		
-		private void readFile(String fileName, String fileSize, InputStream inputStream) throws IOException{
+		private void readFile(String fileName, String fileSize, InputStream inputStream) throws IOException  {
 
 			StringBuilder receivingFolder = new StringBuilder();
 			receivingFolder.append(
@@ -223,7 +248,7 @@ class ReceiverService {
 	                workDone += count;
 	                workMonitor.setWorkDone(workDone);
 	                
-	                if(count < bytes.length){
+	                if(count < bytes.length){ // EOF (end of file)
 	                    break;
 	                }
 	                

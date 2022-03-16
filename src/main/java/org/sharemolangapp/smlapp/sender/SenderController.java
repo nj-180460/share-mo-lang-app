@@ -15,7 +15,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import org.sharemolangapp.smlapp.StageInitializer.RootManager;
-import org.sharemolangapp.smlapp.controller.ExceptionUI;
+import org.sharemolangapp.smlapp.controller.ExceptionExpandedUI;
 import org.sharemolangapp.smlapp.controller.GeneralUseBorderPane;
 import org.sharemolangapp.smlapp.layer.Workable;
 import org.sharemolangapp.smlapp.util.GenericUtils;
@@ -442,7 +442,7 @@ public class SenderController implements Initializable {
 		Button testConnectionButton = new Button();
 		
 		Alert alertOnTest = new Alert(AlertType.NONE);
-		ExceptionUI expandableUI = new ExceptionUI(alertOnTest);
+		ExceptionExpandedUI expandableUI = new ExceptionExpandedUI(alertOnTest);
 		
 		
 		testConnectionButton.setText("Test Connection");
@@ -584,7 +584,7 @@ public class SenderController implements Initializable {
 	boolean connect() {
 		
 		Alert alertOnConnect = new Alert(AlertType.NONE);
-		ExceptionUI expandableUI = new ExceptionUI(alertOnConnect);
+		ExceptionExpandedUI expandableUI = new ExceptionExpandedUI(alertOnConnect);
 		boolean isConnected = false;
 		
 		String headerText = "Connected";

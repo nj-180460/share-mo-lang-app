@@ -33,21 +33,29 @@ public class ManageConnection implements Initializable{
 	@FXML
 	private void handleClientDisconnect(ActionEvent actionEvent) {
 		receiverService.closeClientConnection();
-		labelSenderName.setText("Disconnected");
-		labelHostAddress.setText("Disconnected");
+		labelSenderName.setText("");
+		labelHostAddress.setText("");
 		receiverController.setConnectedToText("");
 	}
 	
 	
 	void setReceiverService(ReceiverService receiverService) {
 		this.receiverService = receiverService;
+		
 		String host = String.valueOf(receiverService.getClientProperties().get("host"));
+		String clientName = String.valueOf(receiverService.getClientProperties().get("clientName"));
+		
 		if(host != null && !host.equals("null")) {
+			
 			labelSenderName.setText(host);
 			labelHostAddress.setText(host);
+			if(clientName != null && !clientName.equals("null")) {
+				labelSenderName.setText(clientName);
+			}
+			
 		} else {
-			labelSenderName.setText("Disconnected");
-			labelHostAddress.setText("Disconnected");
+			labelSenderName.setText("");
+			labelHostAddress.setText("");
 		}
 	}
 	

@@ -3,13 +3,11 @@ package org.sharemolangapp.smlapp.sender;
 import java.io.BufferedOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
-import java.io.EOFException;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.util.Properties;
 import java.util.concurrent.ExecutionException;
@@ -17,6 +15,7 @@ import java.util.concurrent.ExecutionException;
 import org.sharemolangapp.smlapp.sender.SenderController.WorkMonitor;
 import org.sharemolangapp.smlapp.util.ConfigConstant;
 import org.sharemolangapp.smlapp.util.GenericUtils;
+import org.sharemolangapp.smlapp.util.JSONFactory;
 
 
 
@@ -28,14 +27,21 @@ class SenderService {
 	private final SenderNetwork senderNetwork;
 	private final SendOnServerHandler sendOnServerHandler;
 	private final Properties serverProperties;
+	private final String yourName;
 	
 	
 	SenderService(){
 		sendOnServerHandler = new SendOnServerHandler();
 		senderNetwork = new SenderNetwork(this, sendOnServerHandler);
 		serverProperties = new Properties();
+		yourName = JSONFactory.Settings.getJsonParentValue(
+				ConfigConstant.getJsonRelativePath(ConfigConstant.PREFERENCES_JSON_FILE),
+				JSONFactory.Settings.YOUR_NAME_PNODE);
 	}
 	
+	String getYourName() {
+		return yourName;
+	}
 	
 	void setServerProperties(Properties serverProp) {
 		
