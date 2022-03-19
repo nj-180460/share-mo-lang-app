@@ -10,12 +10,16 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.ResourceBundle;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import org.sharemolangapp.smlapp.StageInitializer.RootManager;
+import org.sharemolangapp.smlapp.controller.ExceptionExpandedUI;
+import org.sharemolangapp.smlapp.controller.GeneralUseBorderPane;
 import org.sharemolangapp.smlapp.layer.Workable;
 import org.sharemolangapp.smlapp.util.GenericUtils;
+
 
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
@@ -36,10 +40,12 @@ import javafx.scene.control.Alert.AlertType;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.Dialog;
+import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
 import javafx.scene.control.MultipleSelectionModel;
 import javafx.scene.control.ProgressBar;
+import javafx.scene.control.ProgressIndicator;
 import javafx.scene.control.SelectionMode;
 import javafx.scene.control.TextField;
 import javafx.scene.control.ButtonBar.ButtonData;
@@ -74,8 +80,11 @@ public class SenderController implements Initializable {
 	private final ObservableList<String> observableListSent = FXCollections.observableArrayList();
 	
 	private final LinkedHashMap<ProgressIndicatorBar, File> selectedFilesMap = new LinkedHashMap<>(); 
-	private ObservableList<ProgressIndicatorBar> selectedQueueList = FXCollections.observableArrayList();
 	
+	private ObservableList<ProgressIndicatorBar> selectedQueueList = FXCollections.observableArrayList();
+	private SenderService senderService;
+	
+	private GeneralUseBorderPane generalUseBorderPane;
 	@FXML private Button uploadFilesButton;
 	@FXML private Button sendFilesButton;
 	@FXML private Button connectionPropertiesButton;
@@ -85,7 +94,6 @@ public class SenderController implements Initializable {
 	@FXML private BorderPane dragOverComponent;
 	@FXML private VBox bottomPane;
 	
-	private SenderService senderService;
 	
 	
 	@Override
@@ -148,26 +156,6 @@ public class SenderController implements Initializable {
 			selectedFileList.forEach( file -> {
 				String absolutePath = file.getAbsolutePath(); 
 				WorkMonitor workDone = new WorkMonitor(file.length());
-//				observableListQueue.forEach( progressBar -> {
-//					if(progressBar.fileName.equals(absolutePath)) {
-//						workDoneMap.put(file, workDone);
-//						ProgressIndicatorBar withProgressBar = new ProgressIndicatorBar(workDone, file.length(), absolutePath);
-//						selectedFilesMap.put(withProgressBar, file); 
-//						observableListQueue.add(0, withProgressBar); // at index 0 para una siya sa listahan
-//					}
-//				});
-				
-//				Optional<ProgressIndicatorBar> foundFile = observableListQueue.stream()
-//						.filter( pb -> pb.fileName.equals(absolutePath))
-//						.findFirst();
-//				
-//				if(foundFile == null || foundFile.isEmpty()) {
-//					workDoneMap.put(file, workDone);
-//					ProgressIndicatorBar withProgressBar = new ProgressIndicatorBar(workDone, file.length(), absolutePath);
-//					selectedFilesMap.put(withProgressBar, file); 
-//					observableListQueue.add(0, foundFile.get());
-//				}
-				
 				
 				Optional<ProgressIndicatorBar> foundFile = observableListQueue.stream()
 						.filter( pb -> pb.fileName.equals(absolutePath))
@@ -180,14 +168,6 @@ public class SenderController implements Initializable {
 					selectedFiles.put(withProgressBar, file);
 				}
 				
-//				if(!observableListQueue.contains(absolutePath)) {
-//					workDoneMap.put(file, workDone);
-//					ProgressIndicatorBar withProgressBar = new ProgressIndicatorBar(workDone, file.length(), absolutePath);
-//					selectedFilesMap.put(withProgressBar, file); 
-//					observableListQueue.add(0, withProgressBar); // at index 0 para una siya sa listahan
-////					selectedFilesMap.put(absolutePath, file); 
-////					observableListQueue.add(0, absolutePath); // at index 0 para una siya sa listahan
-//				}
 			});
 			
 			observableListQueue.addAll(selectedFiles.keySet().stream().toList());
@@ -202,10 +182,20 @@ public class SenderController implements Initializable {
 		
 		if(!TRANSFER_MODE) {
 			
-			ListViewService listViewService = new ListViewService(SenderController.this);
-			listViewService.start();
-
-//			updateListView();
+			if(senderService.isServerAccepted()) {
+				
+				ListViewService listViewService = new ListViewService(SenderController.this);
+				listViewService.start();
+				
+			} else {
+				
+				Alert alertOn = new Alert(AlertType.WARNING);
+				alertOn.setTitle("Confirmation");
+				alertOn.setHeaderText("Server Confirmation");
+				alertOn.setContentText("Not yet ready to send. Wait for server to accept your request.");
+				alertOn.show();
+				
+			}
 		
 		}
 	}
@@ -213,50 +203,48 @@ public class SenderController implements Initializable {
 	
 	private void sendNow() throws IOException {
 		
+		if(CLOSING_STAGE) {
+			return;
+		}
+		
 		ObservableList<ProgressIndicatorBar> toRemove = FXCollections.observableArrayList();
 		MultipleSelectionModel<ProgressIndicatorBar> multiSelectionModel = listviewQueue.getSelectionModel();
 		
 		selectedQueueList = FXCollections.observableArrayList(multiSelectionModel.getSelectedItems());
-		dragOverComponent.setDisable(true);
-		listviewQueue.setDisable(true);
-		uploadFilesButton.setDisable(true);
+		
+		toggleComponents(true);
 		connectionPropertiesButton.setDisable(true);
-		backHomeButton.setDisable(true);
 		
+		senderService.setTotalQueuedFiles(selectedQueueList.size());
 		
-		senderService.setFilesLeft(selectedQueueList.size());
-		
-		selectedQueueList.forEach( absolutePath -> {
+		selectedQueueList.forEach( pbarAnimation -> {
 			
 			if(CLOSING_STAGE) {
+				TRANSFER_MODE = false;
 				return;
 			}
 			
 			TRANSFER_MODE = true;
+			toRemove.add(pbarAnimation);
 			
-			toRemove.add(absolutePath);
-			
-			if(selectedFilesMap.containsKey(absolutePath)) {
+			if(selectedFilesMap.containsKey(pbarAnimation)) {
 				
 				// DO SOMETHING -- SEND FILE HERE
-				File file = selectedFilesMap.get(absolutePath);
-				absolutePath.startMonitoring();
-//				Platform.runLater( () -> label.setText("File: ("+toMB(file.length())+") :::: "+absolutePath) );
+				File file = selectedFilesMap.get(pbarAnimation);
+				pbarAnimation.startMonitoring();
 				WorkMonitor workMonitor = workDoneMap.get(file);
-//				workMonitor.monitorWorker( () -> {
-//					Platform.runLater( () -> label.setText("Progress: "+toMB(workMonitor.getWorkDone())+" of "+toMB(workMonitor.getTotalWork())+" === "+absolutePath) );
-//				});
 				
 				try {
-//					sendFileTo(file);
 					senderService.sendFileTo(file, workMonitor);
+					
 				} catch (IOException e) {
 					e.printStackTrace();
+					
 				} finally {
 					workDoneMap.remove(file);
-					selectedFilesMap.remove(absolutePath);
+					selectedFilesMap.remove(pbarAnimation);
 					Platform.runLater( () -> {
-						observableListQueue.remove(absolutePath);
+						observableListQueue.remove(pbarAnimation);
 //						observableListSent.add(0, absolutePath);
 						observableListSent.add(0, file.getAbsolutePath());
 					});
@@ -264,6 +252,8 @@ public class SenderController implements Initializable {
 			}
 		});
 		
+		
+		// server not down
 		toRemove.forEach(selectedFilesMap::remove);
 		
 		Platform.runLater( () -> {
@@ -272,55 +262,14 @@ public class SenderController implements Initializable {
 			observableListQueue.removeAll(selectedQueueList);
 			multiSelectionModel.clearSelection();
 			
-			dragOverComponent.setDisable(false);
-			listviewQueue.setDisable(false);
-			uploadFilesButton.setDisable(false);
+			toggleComponents(false);
 			connectionPropertiesButton.setDisable(false);
-			backHomeButton.setDisable(false);
 			
 		});
-		
+				
 		TRANSFER_MODE = false;
-		
 	}
 	
-	
-	
-//	private void sendFileTo(File file) throws IOException {
-//		String fileName = file.getName();
-//		StringBuilder receivingFolder = new StringBuilder();
-//		receivingFolder.append(System.getProperty("user.home"));
-//		receivingFolder.append(File.separator);
-//		receivingFolder.append("Desktop");
-//		receivingFolder.append(File.separator);
-//		receivingFolder.append("received");
-//		receivingFolder.append(File.separator);
-//		receivingFolder.append(fileName);
-//		
-//		File toOutputfile = new File(receivingFolder.toString());
-//		WorkMonitor workMonitor = workDoneMap.get(file);
-//		
-//		
-//		try(FileOutputStream output = new FileOutputStream(toOutputfile);
-//				FileInputStream input = new FileInputStream(file)){
-//			long transferred = 0;
-//	        byte[] buffer = new byte[ConfigConstant.DEFAULT_BUFFER_SIZE];
-//	        int read;
-//	        while ((read = input.read(buffer, 0, ConfigConstant.DEFAULT_BUFFER_SIZE)) >= 0) {
-//	        	output.write(buffer, 0, read);
-//	            transferred += read;
-//	            workMonitor.setWorkDone(transferred);
-//	        }
-//	        
-//		} catch(IOException ioex) {
-//			throw new IOException(ioex);
-//		}
-//	}
-//	
-//	private String toMB(double value) {
-//		double computedValue =  (value/1024)/1024;
-//		return String.format("%,.2f", computedValue)+"MB";
-//	}
 	
 	
 	
@@ -349,6 +298,8 @@ public class SenderController implements Initializable {
 	@FXML
 	private void handleBackHome(ActionEvent actionEvent) throws IOException {
 		
+		senderService.closeAllConnection();
+		
 		Stage stage = (Stage)((Node)actionEvent.getSource()).getScene().getWindow();
 		Scene scene = stage.getScene();
 		Parent fxmlParent = rootManager.loadFXML(rootManager.getRegisteredResources().get(RootManager.FXML_HOME));
@@ -357,6 +308,50 @@ public class SenderController implements Initializable {
 		scene.setRoot(fxmlParent);
 	}
 	
+	
+	
+	
+	@FXML
+	private void handleClearSelectedFiles(ActionEvent actionEvent) {
+		ObservableList<ProgressIndicatorBar> toRemove = FXCollections.observableArrayList();
+		MultipleSelectionModel<ProgressIndicatorBar> multiSelectionModel = listviewQueue.getSelectionModel();
+		
+		selectedQueueList = FXCollections.observableArrayList(multiSelectionModel.getSelectedItems());
+		toggleComponents(true);
+		connectionPropertiesButton.setDisable(true);
+		
+		selectedQueueList.forEach( absolutePath -> {
+			
+			toRemove.add(absolutePath);
+			
+			if(selectedFilesMap.containsKey(absolutePath)) {
+				
+				// DO SOMETHING -- SEND FILE HERE
+				File file = selectedFilesMap.get(absolutePath);
+				absolutePath.startMonitoring();
+				
+				workDoneMap.remove(file);
+				selectedFilesMap.remove(absolutePath);
+				Platform.runLater( () -> {
+					observableListQueue.remove(absolutePath);
+				});
+				
+			}
+		});
+		
+		toRemove.forEach(selectedFilesMap::remove);
+		
+		Platform.runLater( () -> {
+			
+			selectedQueueList.clear();
+			observableListQueue.removeAll(selectedQueueList);
+			multiSelectionModel.clearSelection();
+			
+			toggleComponents(false);
+			connectionPropertiesButton.setDisable(false);
+			
+		});
+	}
 	
 	
 	
@@ -377,37 +372,44 @@ public class SenderController implements Initializable {
 	@FXML
 	private void handleDragDropped(DragEvent dragEvent) {
 		
-		ArrayList<File> files = new ArrayList<>();
 		Dragboard dragBoard = dragEvent.getDragboard();
-		LinkedHashMap<ProgressIndicatorBar, File> selectedFiles = new LinkedHashMap<>();
 		
-		if(dragBoard.hasFiles()) {
-			files.addAll(dragBoard.getFiles());
+		if(senderService.isConnected()) {
+		
+			ArrayList<File> files = new ArrayList<>();
+			LinkedHashMap<ProgressIndicatorBar, File> selectedFiles = new LinkedHashMap<>();
 			
-			files.forEach( file -> {
-				String absolutePath = file.getAbsolutePath();
-				WorkMonitor workDone = new WorkMonitor(file.length());
-//				workDoneMap.put(file, workDone);
+			if(dragBoard.hasFiles()) {
+				files.addAll(dragBoard.getFiles());
 				
-				ProgressIndicatorBar withProgressBar = new ProgressIndicatorBar(workDone, file.length(), absolutePath);
-//				selectedFilesMap.put(withProgressBar, file);
-//				selectedFiles.put(withProgressBar, file);
-				Optional<ProgressIndicatorBar> foundFile = observableListQueue.stream()
-						.filter( pb -> pb.fileName.equals(absolutePath))
-						.findFirst();
+				files.forEach( file -> {
+					String absolutePath = file.getAbsolutePath();
+					WorkMonitor workDone = new WorkMonitor(file.length());
+					
+					ProgressIndicatorBar withProgressBar = new ProgressIndicatorBar(workDone, file.length(), absolutePath);
+					Optional<ProgressIndicatorBar> foundFile = observableListQueue.stream()
+							.filter( pb -> pb.fileName.equals(absolutePath))
+							.findFirst();
+					
+					if(foundFile == null || foundFile.isEmpty()) {
+						workDoneMap.put(file, workDone);
+						selectedFilesMap.put(withProgressBar, file);
+						selectedFiles.put(withProgressBar, file);
+					}
+					
+				});
 				
-				if(foundFile == null || foundFile.isEmpty()) {
-					workDoneMap.put(file, workDone);
-					selectedFilesMap.put(withProgressBar, file);
-					selectedFiles.put(withProgressBar, file);
-				}
-				
-//				selectedFilesMap.put(absolutePath, file);
-//				selectedFiles.put(absolutePath, file);
-			});
+				observableListQueue.addAll(selectedFiles.keySet().stream().toList());
+			}
 			
-//			observableListQueue.addAll(selectedFiles.keySet().stream().filter(fileName -> !observableListQueue.contains(fileName) ).toList());
-			observableListQueue.addAll(selectedFiles.keySet().stream().toList());
+		
+		} else {
+			
+			Alert alertOn = new Alert(AlertType.NONE);
+			alertOn.setHeaderText("To whom should you send this nonsense?");
+        	alertOn.setContentText("You are not connected to a receiver yet.");
+        	alertOn.setAlertType(AlertType.ERROR);
+    		alertOn.show();
 		}
 		
 		dragEvent.setDropCompleted(true);
@@ -416,11 +418,18 @@ public class SenderController implements Initializable {
 	
 	
 	
+	private void toggleComponents(boolean enable) {
+		dragOverComponent.setDisable(enable);
+		sendFilesButton.setDisable(enable);
+		uploadFilesButton.setDisable(enable);
+//		backHomeButton.setDisable(enable);
+	}
 	
 	
 	
 	
-	public void connectToServerDialog() {
+	
+	public boolean connectToServerDialog() {
 		
 		Dialog<Properties> dialog = new Dialog<>();
 		dialog.setTitle("Connect to ");
@@ -431,52 +440,67 @@ public class SenderController implements Initializable {
 		TextField tfHost = new TextField();
 		TextField tfPort = new TextField();
 		Button testConnectionButton = new Button();
+		
 		Alert alertOnTest = new Alert(AlertType.NONE);
+		ExceptionExpandedUI expandableUI = new ExceptionExpandedUI(alertOnTest);
+		
 		
 		testConnectionButton.setText("Test Connection");
 		testConnectionButton.setOnAction( (eventHandler) -> {
 			
-			boolean isConnected = false;
+			String headerText = "Connection success";
+			String contentText = "Successfully connected!";
+			AlertType alertType = AlertType.INFORMATION;
 			Properties serverProp = new Properties();
+			
 			serverProp.setProperty("host", tfHost.getText());
         	serverProp.setProperty("port", tfPort.getText());
         	senderService.setServerProperties(serverProp);
 			
-			try {
-				isConnected = senderService.testConnection();
-			} catch (NumberFormatException e) {
-				e.printStackTrace();
-				alertOnTest.setHeaderText("Invalid inputs");
-				alertOnTest.setContentText("You entered invalid inputs. Provide valid inputs.");
-				alertOnTest.setAlertType(AlertType.ERROR);
-				alertOnTest.show();
+        	try {
+    			
+    			if(!senderService.testConnection()) {
+    				
+    				headerText = "Connection refused";
+    				contentText = "You might connecting to an invalid server address. Try again";
+    				alertType = AlertType.ERROR;
+    				
+    			}
+    			
+    			
+    		} catch (NumberFormatException e) {
+    			e.printStackTrace();
+    			expandableUI.addExceptionStackTrace(e);
+    			headerText = "Invalid inputs";
+    			contentText = "You entered invalid inputs. Provide valid inputs.";
+    			alertType = AlertType.ERROR;
+    			
+    		} catch (UnknownHostException e) {
+    			e.printStackTrace();
+    			expandableUI.addExceptionStackTrace(e);
+    			headerText = "Unknown Server";
+    			contentText = "Unable to connect to server. Make sure you provide the right address of the server.";
+    			alertType = AlertType.ERROR;
+    			
+    		} catch (IOException e) {
+    			e.printStackTrace();
+    			expandableUI.addExceptionStackTrace(e);
+    			headerText = "Connection unavailable";
+    			contentText = "Unable to start connection. Make sure you are connected to a network.";
+    			alertType = AlertType.ERROR;
+    			
+    		} catch (InterruptedException e) {
+				e.printStackTrace(); // i think do nothing when interrupted nalang
 				
-			} catch (UnknownHostException e) {
+			} catch (ExecutionException e) {
 				e.printStackTrace();
-				alertOnTest.setHeaderText("Unknown Server");
-				alertOnTest.setContentText("Unable to connect to server. Make sure you provide the right address of the server.");
-				alertOnTest.setAlertType(AlertType.ERROR);
-				alertOnTest.show();
 				
-			} catch (IOException e) {
-				e.printStackTrace();
-				alertOnTest.setHeaderText("Connection unavailable");
-				alertOnTest.setContentText("Unable to start connection. Make sure you are connected to a network.");
-				alertOnTest.setAlertType(AlertType.ERROR);
-				alertOnTest.show();
 			}
-			
-			if(isConnected) {
-				alertOnTest.setHeaderText("Connection success");
-				alertOnTest.setContentText("Successfully connected!");
-				alertOnTest.setAlertType(AlertType.INFORMATION);
-				alertOnTest.show();
-			} else {
-				alertOnTest.setHeaderText("Connection refused");
-				alertOnTest.setContentText("You might connecting to an invalid server address. Try again.");
-				alertOnTest.setAlertType(AlertType.ERROR);
-				alertOnTest.show();
-			}
+        	
+        	alertOnTest.setHeaderText(headerText);
+        	alertOnTest.setContentText(contentText);
+        	alertOnTest.setAlertType(alertType);
+    		alertOnTest.show();
 			
 		});
 		
@@ -508,14 +532,26 @@ public class SenderController implements Initializable {
 		        	String host = tfHost.getText();
 		        	String port = tfPort.getText();
 		        	
+		        	Alert alertOnConnect = new Alert(AlertType.NONE);
+		        	String headerText = "Incomplete host address";
+		        	String contentText = "IP address and port must be present.";
+		        	
 		        	serverProp.setProperty("host", host);
 		        	serverProp.setProperty("port", port);
 		        	
 		        	if((host == null || host.isBlank()) && (port == null || port.isBlank())) {
-		    			return null;
+		    			
+						alertOnConnect.setHeaderText(headerText);
+						alertOnConnect.setContentText(contentText);
+						alertOnConnect.setAlertType(AlertType.ERROR);
+						alertOnConnect.show();
+		        		
+		    		} else {
+		    			
+		    			return serverProp;
 		    		}
 		        	
-		            return serverProp;
+		            return null;
 		        }
 		 
 		        return null;
@@ -523,22 +559,24 @@ public class SenderController implements Initializable {
 		});
 		         
 		Optional<Properties> result = dialog.showAndWait();
-		         
-		if (result.isPresent()) {
+		
+		senderService.closeAllConnection();
+		
+		boolean isConnected = false;
+		
+		if(result.isPresent()) {
 			
 			senderService.setServerProperties(result.get());
-        	
-			connect();
+			isConnected = connect();
 			
-		} else {
-			
-			Alert alertOnConnect = new Alert(AlertType.NONE);
-			alertOnConnect.setHeaderText("Incomplete host address");
-			alertOnConnect.setContentText("IP address and port must be present.");
-			alertOnConnect.setAlertType(AlertType.ERROR);
-			alertOnConnect.show();
+			if(!isConnected) {
+				senderService.getServerProperties().clear();
+			}
 			
 		}
+		
+		
+		return isConnected;
 	}
 	
 	
@@ -546,53 +584,136 @@ public class SenderController implements Initializable {
 	boolean connect() {
 		
 		Alert alertOnConnect = new Alert(AlertType.NONE);
+		ExceptionExpandedUI expandableUI = new ExceptionExpandedUI(alertOnConnect);
 		boolean isConnected = false;
 		
+		String headerText = "Connected";
+		String contentText = "Successfully connected!";
+		AlertType alertType = AlertType.INFORMATION;
+		
+		
     	try {
-			isConnected = senderService.connect();
+    		
+			// waiting - animation effect
+			Service<Boolean> service = new Service<>() {
+
+				@Override
+				protected Task<Boolean> createTask() {
+					
+			        Task<Boolean> task = new Task<>() {
+			        	
+			        	@Override
+						protected Boolean call() throws Exception {
+							return senderService.connect();
+						}
+						
+					};
+					
+					task.setOnSucceeded( eventHandle -> {
+						generalUseBorderPane.setSucceed(true);
+						generalUseBorderPane.closeStage();
+					});
+					
+					task.setOnFailed( eventHandle -> {
+						generalUseBorderPane.setSucceed(false);
+						generalUseBorderPane.closeStage();
+						try {
+							returnHome();
+						} catch (IOException e) {
+							e.printStackTrace();
+						}
+					});
+					
+					task.setOnCancelled( cancelledEvent -> {
+						generalUseBorderPane.setSucceed(false);
+						generalUseBorderPane.closeStage();
+						try {
+							returnHome();
+						} catch (IOException e) {
+							e.printStackTrace();
+						}
+					});
+					
+					return task;
+				}
+				
+			};
+			
+			service.start();
+			loadingAnimation();
+			
+			if(service.getValue() == null) {
+				
+				headerText = "Connection refused";
+				contentText = "You might connecting to an invalid server address or the receiver might not response to your request. Try again.";
+				alertType = AlertType.ERROR;
+				
+			} else if(!service.getValue()){
+				
+				headerText = "Connection reject";
+				contentText = "You have been rejected by the receiver, mate.";
+				alertType = AlertType.ERROR;
+				
+			} else {
+				
+				isConnected = true;
+				
+			}
+			
+			
+			
+//			if(!(isConnected = senderService.connect())) {
+//				
+//				headerText = "Connection refused";
+//				contentText = "You might connecting to an invalid server address. Try again";
+//				alertType = AlertType.ERROR;
+//				
+//			}
+			
+			
+			
 		} catch (NumberFormatException e) {
 			e.printStackTrace();
-			alertOnConnect.setHeaderText("Invalid inputs");
-			alertOnConnect.setContentText("You entered invalid inputs. Provide valid inputs.");
-			alertOnConnect.setAlertType(AlertType.ERROR);
-			alertOnConnect.show();
+			expandableUI.addExceptionStackTrace(e);
+			headerText = "Invalid inputs";
+			contentText = "You entered invalid inputs. Provide valid inputs.";
+			alertType = AlertType.ERROR;
 			
 		} catch (UnknownHostException e) {
 			e.printStackTrace();
-			alertOnConnect.setHeaderText("Unknown Server");
-			alertOnConnect.setContentText("Unable to connect to server. Make sure you provide the right address of the server.");
-			alertOnConnect.setAlertType(AlertType.ERROR);
-			alertOnConnect.show();
+			expandableUI.addExceptionStackTrace(e);
+			headerText = "Unknown Server";
+			contentText = "Unable to connect to server. Make sure you provide the right address of the server.";
+			alertType = AlertType.ERROR;
 			
 		} catch (IOException e) {
 			e.printStackTrace();
-			alertOnConnect.setHeaderText("Connection unavailable");
-			alertOnConnect.setContentText("Unable to start connection. Make sure you are connected to a network.");
-			alertOnConnect.setAlertType(AlertType.ERROR);
-			alertOnConnect.show();
+			expandableUI.addExceptionStackTrace(e);
+			headerText = "Connection unavailable";
+			contentText = "Unable to start connection. Make sure you are connected to a network.";
+			alertType = AlertType.ERROR;
+			
 		}
-		
     	
-		if(isConnected) {
-			
-			alertOnConnect.setHeaderText("Connection success");
-			alertOnConnect.setContentText("Successfully connected!");
-			alertOnConnect.setAlertType(AlertType.INFORMATION);
-			alertOnConnect.show();
-			
-		} else {
-			
-			alertOnConnect.setHeaderText("Connection refused");
-			alertOnConnect.setContentText("You might connecting to an invalid server address. Try again.");
-			alertOnConnect.setAlertType(AlertType.ERROR);
-			alertOnConnect.show();
-			
-		}
+		alertOnConnect.setHeaderText(headerText);
+		alertOnConnect.setContentText(contentText);
+		alertOnConnect.setAlertType(alertType);
+		alertOnConnect.show();
 		
 		return isConnected;
 	}
 	
 	
+	
+	
+	
+	public void returnHome() throws IOException {
+		closeAll();
+		Parent parent = rootManager.getParent();
+		Scene scene = parent.getScene();
+		Parent fxmlParent = rootManager.loadFXML(rootManager.getRegisteredResources().get(RootManager.FXML_HOME));
+		scene.setRoot(fxmlParent);
+	}
 	
 	
 	
@@ -606,33 +727,78 @@ public class SenderController implements Initializable {
 	
 	
 	
+	private void loadingAnimation() throws IOException {
+		
+		FXMLLoader fxmlLoader = new FXMLLoader(rootManager.getRegisteredResources().get(RootManager.FXML_GENERAL_USER_BORDERPANE).getURL());
+		
+        Parent fxmlParent = fxmlLoader.load();
+        
+        Scene scene = new Scene(fxmlParent, 300, 200);
+        Stage stage = new Stage();
+        stage.setResizable(false);
+        
+        generalUseBorderPane = fxmlLoader.getController();
+        generalUseBorderPane.setStage(stage);
+        
+        ProgressIndicator progressIndicatorIndefinite = new ProgressIndicator();
+        generalUseBorderPane.getGeneralUseBorderPane().setCenter(progressIndicatorIndefinite);
+        Label text = new Label();
+        text.setText("Waiting for receiver to accept the request.");
+        generalUseBorderPane.getGeneralUseBorderPane().setBottom(text);
+        
+        stage.setMinWidth(300);
+        stage.setMinHeight(200);
+        stage.setMaxWidth(300);
+        stage.setMaxHeight(200);
+        stage.setOnCloseRequest( (eventHandle) -> {
+        	generalUseBorderPane.closeStage();
+        	if(!generalUseBorderPane.isSucceed()) {
+        		try {
+					returnHome();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+        	}
+        });
+        stage.initModality(Modality.APPLICATION_MODAL);
+        stage.setScene(scene);
+        stage.showAndWait();
+        
+	}
+	
+	
+	
+	
+	
 	private class ListViewService extends Service<ObservableList<String>>{
 
-		private final SenderController sendProcess;
+		private final SenderController senderController;
 		
 		private ListViewService(SenderController sendProcess) {
-			this.sendProcess = sendProcess;
+			this.senderController = sendProcess;
 		}
 		
 		@Override
 		protected Task<ObservableList<String>> createTask() {
-			return new ListViewTask(sendProcess);
+			return new ListViewTask(this.senderController);
 		}
 		
 	}
 	
 	
+	
+	
 	private class ListViewTask extends Task<ObservableList<String>>{
 
-		private final SenderController sendProcess;
+		private final SenderController senderController;
 		
-		private ListViewTask(SenderController sendProcess) {
-			this.sendProcess = sendProcess;
+		private ListViewTask(SenderController senderController) {
+			this.senderController = senderController;
 		}
 		
 		@Override
 		protected ObservableList<String> call() throws Exception {
-			sendProcess.sendNow();
+			this.senderController.sendNow();
 			return null;
 		}
 		
@@ -735,6 +901,7 @@ public class SenderController implements Initializable {
 	class WorkMonitor {
 		
 		private final long totalWork;
+		private final ExecutorService exeService = Executors.newSingleThreadExecutor();
 		
 		private long workDone;
 		private long oldValue = workDone;
@@ -756,7 +923,6 @@ public class SenderController implements Initializable {
 		}
 		
 		void monitorWorker(Workable worker) {
-			ExecutorService exeService = Executors.newSingleThreadExecutor();
 			exeService.execute( () -> {
 				while((workDone != totalWork)) {
 					
@@ -769,14 +935,21 @@ public class SenderController implements Initializable {
 					} catch (InterruptedException e) {
 						e.printStackTrace();
 					}
+					
 					if(workDone != oldValue) {
 						oldValue = workDone;
 						worker.work();
 					}
 				}
+				
 				TRANSFER_MODE = false;
 			});
 			exeService.shutdown();
+		}
+		
+		// wara pa kagamiti
+		private void shutdownMonitoring() {
+			exeService.shutdownNow();
 		}
 	}
 	

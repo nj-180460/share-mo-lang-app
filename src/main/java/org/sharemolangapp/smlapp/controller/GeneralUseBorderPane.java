@@ -14,6 +14,7 @@ public class GeneralUseBorderPane implements Initializable{
 	
 	@FXML BorderPane generalUseBorderPane;
 	private Stage stage;
+	private boolean isSucceed;
 
 	
 	
@@ -34,6 +35,16 @@ public class GeneralUseBorderPane implements Initializable{
 	
 	public void closeStage() {
 		stage.close();
+	}
+	
+	
+	
+	public boolean isSucceed() {
+		return isSucceed;
+	}
+	
+	public void setSucceed(boolean isSucceed) {
+		this.isSucceed = isSucceed;
 	}
 	
 }

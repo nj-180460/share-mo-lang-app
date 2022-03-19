@@ -7,11 +7,14 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.net.UnknownHostException;
+import java.nio.file.Files;
 import java.util.Properties;
 
+import org.sharemolangapp.smlapp.receiver.ReceiverController.WorkMonitor;
+import org.sharemolangapp.smlapp.util.ConfigConstant;
 import org.sharemolangapp.smlapp.util.GenericUtils;
+import org.sharemolangapp.smlapp.util.JSONFactory;
 import org.sharemolangapp.smlapp.util.NetworkUtility;
 
 
@@ -20,15 +23,26 @@ class ReceiverService {
 
 	private static int NUMBER_OF_FILES = 0;
 	
+	private final ReceiverController receiverController;
 	private final ReceiverNetwork receiverNetwork;
-	private final Properties serverProp;
+	private final Properties serverProperties;
+	private final Properties clientProperties;
 	private final ReceiveOnClientHandler receiveOnClientHandler;
+	private final String yourName;
+	
+	private String feedback;
 	
 	
-	ReceiverService(){
-		receiverNetwork = new ReceiverNetwork();
-		serverProp = new Properties();
-		receiveOnClientHandler = new ReceiveOnClientHandler();
+	ReceiverService(ReceiverController receiverController){
+		this.receiverController = receiverController;
+		this.receiverNetwork = new ReceiverNetwork(this);
+		this.serverProperties = new Properties();
+		this.clientProperties = new Properties();
+		this.receiveOnClientHandler = new ReceiveOnClientHandler();
+		this.feedback = ConfigConstant.NONE_RESPONSE;
+		this.yourName = JSONFactory.Settings.getJsonParentValue(
+				ConfigConstant.getJsonRelativePath(ConfigConstant.PREFERENCES_JSON_FILE),
+				JSONFactory.Settings.YOUR_NAME_PNODE);
 	}
 	
 	
@@ -41,72 +55,79 @@ class ReceiverService {
 			throw new ReceiverNetworkException("IP Address and Port must be present.");
 		}
 		
-		serverProp.put("host", host);
-		serverProp.put("port", port);
+		serverProperties.put("host", host);
+		serverProperties.put("port", port);
+		serverProperties.put("serverName", yourName);
 		
 	}
 	
 	
+	ReceiveOnClientHandler getReceiveOnClientHandler() {
+		return receiveOnClientHandler;
+	}
+	
+	
 	Properties getServerProperties() {
-		return serverProp;
+		return serverProperties;
+	}
+	
+	Properties getClientProperties() {
+		return clientProperties;
 	}
 	
 	
 	boolean startServer() throws NumberFormatException, UnknownHostException, IOException {
-		return receiverNetwork.startServer(Integer.parseInt(serverProp.get("port").toString()));
+		return receiverNetwork.startServer();
 	}
 	
-	void startWaitingForClient() {
+	
+	void startClientService() {
 		receiverNetwork.waitingForClient(receiveOnClientHandler);
 	}
 	
 	
-	void closeAll() {
+	boolean isConnected() {
+		return receiverNetwork.isConnected();
+	}
+	
+	
+	synchronized void closeAll() {
+		setRequest(ConfigConstant.NONE_RESPONSE);
 		receiverNetwork.closeConnection();
 	}
+	
 	
 	void closeClientConnection() {
 		receiverNetwork.closeClientConnection();
 	}
 	
 	
-//	void sendFileTo(File file, WorkMonitor workMonitor) throws IOException {
-//		String fileName = file.getName();
-//		StringBuilder receivingFolder = new StringBuilder();
-//		receivingFolder.append(System.getProperty("user.home"));
-//		receivingFolder.append(File.separator);
-//		receivingFolder.append("Desktop");
-//		receivingFolder.append(File.separator);
-//		receivingFolder.append("received");
-//		receivingFolder.append(File.separator);
-//		receivingFolder.append(fileName);
-//		
-//		File toOutputfile = new File(receivingFolder.toString());
-//		
-//		
-//		try(FileOutputStream output = new FileOutputStream(toOutputfile);
-//				FileInputStream input = new FileInputStream(file)){
-//			long transferred = 0;
-//	        byte[] buffer = new byte[GenericUtils.DEFAULT_BUFFER_SIZE];
-//	        int read;
-//	        while ((read = input.read(buffer, 0, GenericUtils.DEFAULT_BUFFER_SIZE)) >= 0) {
-//	        	output.write(buffer, 0, read);
-//	            transferred += read;
-//	            workMonitor.setWorkDone(transferred);
-//	        }
-//	        
-//		} catch(IOException ioex) {
-//			throw new IOException(ioex);
-//		}
-//	}
+	
+	void setRequest(String feedback) {
+		this.feedback = feedback;
+	}
+	
+	String getResponse() {
+		return feedback;
+	}
 	
 	
 	
-	public void openFileExplorerLocation(File file) {
+	boolean serverConfirmation() {
+		return receiverController.serverConfirmation();
+	}
+
+	
+	
+	
+	
+	
+	
+	void openFileExplorerLocation(String absolutePath) {
 		
 		if(GenericUtils.IS_WINDOWS) {
 			try {
-				Runtime.getRuntime().exec("explorer /select, "+file.getAbsolutePath()); // for windows os
+				Runtime.getRuntime().exec("explorer /select, "+absolutePath); // for windows os platform
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
@@ -126,23 +147,27 @@ class ReceiverService {
 		private DataOutputStream dataOutputStream;
 		
 		
-		
-		void setClientStreams(InputStream inputStream, OutputStream outputStream) {
-			bufferedInputStream = new BufferedInputStream(inputStream);
-			dataInputStream = new DataInputStream(inputStream);
-            dataOutputStream = new DataOutputStream(outputStream);
+		void setClientStreams(
+				DataInputStream dataInputStream,
+				DataOutputStream dataOutputStream,
+				BufferedInputStream bufferedInputStream) {
+			this.dataInputStream = dataInputStream;
+            this.dataOutputStream = dataOutputStream;
+			this.bufferedInputStream = bufferedInputStream;
 		}
 		
 		
 		
-		// 3 way handshake
+		// 3 way handshake confirmation/verification
 		void onRead() throws IOException {
 			
-			while((NUMBER_OF_FILES = dataInputStream.readInt()) >= 0) {
+			// code 1
+			while((NUMBER_OF_FILES = dataInputStream.readInt()) >= 0){
 				dataOutputStream.writeInt(NUMBER_OF_FILES);
 	            dataOutputStream.flush();
 
 	            while(NUMBER_OF_FILES > 0){
+	            	
 	                onWaitFile();
 
 	                NUMBER_OF_FILES--;
@@ -152,7 +177,25 @@ class ReceiverService {
 	                }
 	            }
 			}
-			System.out.println("terminates server waiting.");
+			
+			// code 2 - preferred, unless OEFException solved
+//			while(dataInputStream.available() > 0) { // this resolve OEFException being thrown, pero diri gud ma-solve hays
+//				if((NUMBER_OF_FILES = dataInputStream.readInt()) >= 0){
+//					dataOutputStream.writeInt(NUMBER_OF_FILES);
+//		            dataOutputStream.flush();
+//	
+//		            while(NUMBER_OF_FILES > 0){
+//		            	
+//		                onWaitFile();
+//	
+//		                NUMBER_OF_FILES--;
+//		                if(NUMBER_OF_FILES > 0){
+//		                    dataOutputStream.writeInt(NUMBER_OF_FILES);
+//		                    dataOutputStream.flush();
+//		                }
+//		            }
+//				}
+//			}
 			
 		}
 		
@@ -160,150 +203,67 @@ class ReceiverService {
 		
 		
 		void onWaitFile() throws IOException {
-			String fileName = dataInputStream.readUTF();
+			String fileProperty = dataInputStream.readUTF();
+			String []fileProps = fileProperty.split(":");
+			String fileName = fileProps[0];
+			String fileSize = fileProps[1];
 
 	        boolean validFileName = (fileName != null && !fileName.isBlank());
-	        dataOutputStream.writeBoolean(validFileName);
+	        String response = (validFileName ? ConfigConstant.OK_RESPONSE : ConfigConstant.FILENAME_EMPTY_RESPONSE);
+	        dataOutputStream.writeUTF(response);
 	        dataOutputStream.flush();
 
 	        if(validFileName){
-	            readFile(fileName, bufferedInputStream);
+	            readFile(fileName, fileSize, bufferedInputStream);
 	        }
 	    }
 		
 		
 		
 		
-		private void readFile(String fileName, InputStream inputStream){
+		private void readFile(String fileName, String fileSize, InputStream inputStream) throws IOException  {
 
 			StringBuilder receivingFolder = new StringBuilder();
-			receivingFolder.append(System.getProperty("user.home"));
-			receivingFolder.append(File.separator);
-			receivingFolder.append("Desktop");
-			receivingFolder.append(File.separator);
-			receivingFolder.append("received");
-			receivingFolder.append(File.separator);
+			receivingFolder.append(
+					JSONFactory.Settings.getJsonParentValue(
+						ConfigConstant.getJsonRelativePath(ConfigConstant.PREFERENCES_JSON_FILE),
+						JSONFactory.Settings.OUTPUT_FOLDER_PNODE));
 			receivingFolder.append(fileName);
 			
 	        File receivingFile = new File(receivingFolder.toString());
+	        
 	        byte[] bytes = new byte[GenericUtils.DEFAULT_BUFFER_SIZE];
 
 	        try(FileOutputStream outputStream = new FileOutputStream(receivingFile)){
 
+		        receiverController.addMonitoringFile(receivingFile, fileSize);
+		        WorkMonitor workMonitor = receiverController.getWorkMonitor();
+	        	
+	        	long workDone = 0;
 	            int count;
 	            while ((count = inputStream.read(bytes)) >= 0) {
+	            	
 	                outputStream.write(bytes, 0, count);
-	                if(count < bytes.length){
+	                
+	                workDone += count;
+	                workMonitor.setWorkDone(workDone);
+	                
+	                if(count < bytes.length){ // EOF (end of file)
 	                    break;
 	                }
+	                
 	            }
+	            
+	            workMonitor.setWorkDone(workMonitor.getTotalWork());
 	            outputStream.flush();
 
-	        }catch(IOException io){
+	        } catch(IOException io){
 	            io.printStackTrace();
+	            Files.deleteIfExists(receivingFile.toPath());
 	        }
 	        
 	    }
 		
-		
-		
-		
-		
-		
-//		void write() throws IOException {
-//			
-//			StringBuilder receivingFolder = new StringBuilder();
-//			receivingFolder.append(System.getProperty("user.home"));
-//			receivingFolder.append(File.separator);
-//			receivingFolder.append("Desktop");
-//			receivingFolder.append(File.separator);
-//			receivingFolder.append("received");
-//			receivingFolder.append(File.separator);
-//			
-//			System.out.println("waiting for file properties...");
-//			
-//			
-////			byte[] bufferedFileProperty = new byte[GenericUtils.DEFAULT_BUFFER_SIZE];
-////			int readFileProperty = bufferedInput.read();
-//			String fileProperty = dataInputStream.readUTF();
-////			byte[] bufferedFileProperty = new byte[readFileProperty];
-//			
-//			System.out.println("receiver byte size: " + fileProperty.length());
-////			fileProperty = new String(bufferedFileProperty);
-//			System.out.println("receiver string size: " + fileProperty.length());
-//			
-//			String[] filePropSliced = fileProperty.split(":");
-//			
-//			String fileName = filePropSliced[0];
-//			System.out.println("file name: "+fileName);
-//			
-//			System.out.println(fileProperty);
-//			System.out.println(filePropSliced[0]);
-//			System.out.println(filePropSliced[1]);
-//			
-//			long fileSize = 0;//Long.parseLong(filePropSliced[1]);
-//			System.out.println("file size: "+(fileSize/1024)/1024);
-////			
-////			if(fileSize == 0) {
-////				return;
-////			}
-////			
-//			receivingFolder.append(fileName);
-//			
-//			File toOutputfile = new File(receivingFolder.toString());
-//			
-//			try(FileOutputStream output = new FileOutputStream(toOutputfile)){
-//				
-//				byte[] buffer = new byte[GenericUtils.DEFAULT_BUFFER_SIZE];
-//				long transferred = 0;
-//		        int read;
-//		        while ((fileSize > 0) && ((read = bufferedInputStream.read(buffer)) >= 0)) {
-//		        	output.write(buffer, 0, read);
-//		            transferred += read;
-//		            fileSize -= read; // read upto file size -  EOF - End Of File
-//		        }
-//		        
-//		        output.flush();
-//		        
-//			} catch(IOException ioex) {
-//				throw new IOException(ioex);
-//			}
-//		} 
-		
-		
-		
-//		void writeToLocal() throws IOException {
-//			String fileName = "(file)";
-//			StringBuilder receivingFolder = new StringBuilder();
-//			receivingFolder.append(System.getProperty("user.home"));
-//			receivingFolder.append(File.separator);
-//			receivingFolder.append("Desktop");
-//			receivingFolder.append(File.separator);
-//			receivingFolder.append("received");
-//			receivingFolder.append(File.separator);
-//			receivingFolder.append(fileName+".png");
-//			
-//			File toOutputfile = new File(receivingFolder.toString());
-//			
-//			try(FileOutputStream output = new FileOutputStream(toOutputfile);
-//					BufferedInputStream input = new BufferedInputStream(inputStream, GenericUtils.DEFAULT_BUFFER_SIZE)){
-//				
-//				
-//				
-//				
-//				
-//				long transferred = 0;
-//		        byte[] buffer = new byte[GenericUtils.DEFAULT_BUFFER_SIZE];
-//		        int read;
-//		        while ((read = input.read(buffer)) >= 0) {
-//		        	output.write(buffer, 0, read);
-//		            transferred += read;
-//		        }
-//		        
-//			} catch(IOException ioex) {
-//				throw new IOException(ioex);
-//			}
-//		} 
-		
 	}
+	
 }

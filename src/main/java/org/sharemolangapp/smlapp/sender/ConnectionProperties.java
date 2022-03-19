@@ -4,7 +4,9 @@ package org.sharemolangapp.smlapp.sender;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.scene.Node;
+import javafx.scene.control.Alert;
 import javafx.scene.control.Label;
+import javafx.scene.control.Alert.AlertType;
 import javafx.stage.Stage;
 
 
@@ -19,12 +21,17 @@ public class ConnectionProperties {
 	@FXML Label labelServerStatus;
 	
 	
+	void setSenderController(SenderController senderController) {
+		this.senderController = senderController;
+	}
+	
+	
 	void setSenderService(SenderService senderService) {
 		this.senderService = senderService;
-		String host = String.valueOf(senderService.getServerProperties().get("host"));
-		String port = String.valueOf(senderService.getServerProperties().get("port"));
 		
-		labelServerName.setText("Some server");
+		String host = String.valueOf(this.senderService.getServerProperties().get("host"));
+		String port = String.valueOf(this.senderService.getServerProperties().get("port"));
+		String serverName = String.valueOf(this.senderService.getServerProperties().get("serverName"));
 		
 		if((host == null || host.isBlank()) && (port == null || port.isBlank())) {
 			
@@ -33,18 +40,11 @@ public class ConnectionProperties {
 		} else {
 			
 			labelHostAddress.setText(host + ":" + port);
+			labelServerName.setText(serverName);
 			labelServerStatus.setText("Connected and active");
 			
 		}
 	}
-	
-	void setSenderController(SenderController senderController) {
-		this.senderController = senderController;
-	}
-	
-//	void setServerProperties(Properties serverProperties) {
-//		this.serverProperties.putAll(serverProperties);
-//	}
 	
 	
 	
@@ -65,8 +65,7 @@ public class ConnectionProperties {
 	private void handleReconnect(ActionEvent actionEvent) {
 		String host = String.valueOf(senderService.getServerProperties().get("host"));
 		String port = String.valueOf(senderService.getServerProperties().get("port"));
-		
-		labelServerName.setText("Some server");
+		String serverName = String.valueOf(senderService.getServerProperties().get("serverName"));
 		
 		if((host == null || host.isBlank()) && (port == null || port.isBlank())) {
 			
@@ -74,11 +73,24 @@ public class ConnectionProperties {
 			
 		} else {
 			
-			if(senderController.connect()) {
-				labelHostAddress.setText(host + ":" + port);
-				labelServerStatus.setText("Connected and active");
+			if(senderService.isConnected()) {
+			
+				Alert alertOn = new Alert(AlertType.NONE);
+				alertOn.setHeaderText("You are still connected to a server.");
+	        	alertOn.setContentText("You are not connected to a server");
+	        	alertOn.setAlertType(AlertType.ERROR);
+	    		alertOn.show();
+			
 			} else {
-				labelServerStatus.setText("Not connected");
+				
+				if(senderController.connect()) {
+					labelServerName.setText(serverName);
+					labelHostAddress.setText(host + ":" + port);
+					labelServerStatus.setText("Connected and active");
+				} else {
+					labelServerStatus.setText("Not connected");
+				}
+				
 			}
 			
 		}

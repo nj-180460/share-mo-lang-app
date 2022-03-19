@@ -1,8 +1,9 @@
 package org.sharemolangapp.smlapp.receiver;
 
+
 import java.io.BufferedInputStream;
-import java.io.File;
-import java.io.FileOutputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -12,7 +13,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
 import org.sharemolangapp.smlapp.receiver.ReceiverService.ReceiveOnClientHandler;
-import org.sharemolangapp.smlapp.util.GenericUtils;
+import org.sharemolangapp.smlapp.util.ConfigConstant;
 
 
 
@@ -21,16 +22,26 @@ class ReceiverNetwork {
 	private static boolean SERVER_RUNNING = false;
 	private static boolean CLIENT_CONNECTION_ESTABLISHED = false;
 	
+	private final ReceiverService receiverService;
+	
 	private ServerSocket serverSocket;
 	private ClientHandler clientHandler;
+	private ExecutorService clientRequestExec;
+	private ExecutorService clientMonitoringExec;
 	
-	ReceiverNetwork(){
-		
+	
+	
+	ReceiverNetwork(ReceiverService receiverService){
+		this.receiverService = receiverService;
 	}
 	
 	
-	boolean startServer(int port) {
-		return initializeServer(port);
+	boolean startServer() {
+		String portstr = String.valueOf(receiverService.getServerProperties().get("port"));
+		if(portstr != null && !portstr.equals("null")) {
+			return initializeServer(Integer.parseInt(portstr));
+		}
+		return false;
 	}
 	
 	
@@ -46,7 +57,7 @@ class ReceiverNetwork {
 			
 			try {
 				serverSocket = new ServerSocket(port);
-//				serverSocket.setSoTimeout((int)Duration.ofSeconds(30).toMillis());
+//				serverSocket.setSoTimeout(GenericUtils.CONNECTION_SO_TIMEOUT);
 				serverStarted = true;
 			} catch (IOException e) {
 				e.printStackTrace();
@@ -76,58 +87,156 @@ class ReceiverNetwork {
 	void waitingForClient(ReceiveOnClientHandler receiveOnClientHandler) {
 		
 		if(!CLIENT_CONNECTION_ESTABLISHED) {
-			ExecutorService execService = Executors.newSingleThreadExecutor();
-			execService.execute( () -> {
-				try {
-					Socket clientSocket = serverSocket.accept();
-					System.out.println("client is connected");
-					clientHandler = new ClientHandler(clientSocket);
-					CLIENT_CONNECTION_ESTABLISHED = true;
-					System.out.println("waiting for files...");
-					clientHandler.setReceiveOnClientHandler(receiveOnClientHandler);
-					System.out.println("done");
-					CLIENT_CONNECTION_ESTABLISHED = false;
-				} catch (IOException e) {
-					e.printStackTrace();
-					CLIENT_CONNECTION_ESTABLISHED = false;
-					SERVER_RUNNING = false;
-				}
+			clientRequestExec = Executors.newSingleThreadExecutor();
+			clientRequestExec.execute( () -> {
+				
+				do {
+					
+					try (Socket clientSocket = serverSocket.accept()){
+						
+						clientHandler = new ClientHandler(clientSocket);
+						DataInputStream dataInputStream = clientHandler.getDataInputStream();
+						DataOutputStream dataOutputStream = clientHandler.getDataOutputStream();
+						
+						String clientRequestFirst = dataInputStream.readUTF();
+						String []deconsClientRequestFirst = clientRequestFirst.split(":");
+						String clientRequest = deconsClientRequestFirst[0];
+						String clientName = deconsClientRequestFirst[1];
+						
+						receiverService.getClientProperties().put("host", clientSocket.getInetAddress().getHostAddress());
+						receiverService.getClientProperties().put("clientName", clientName);
+						
+						receiverService.setRequest(clientRequest);
+						
+						StringBuilder responseInfo = new StringBuilder();
+						
+						if(receiverService.serverConfirmation()) {
+							
+							responseInfo.append(receiverService.getResponse());
+							responseInfo.append(":");
+							responseInfo.append(receiverService.getServerProperties().get("serverName").toString());
+							
+							dataOutputStream.writeUTF(responseInfo.toString());
+							dataOutputStream.flush();
+							
+							CLIENT_CONNECTION_ESTABLISHED = true;
+							monitorClientStatus(clientHandler);
+							clientHandler.setReceiveOnClientHandler(receiveOnClientHandler);
+							
+						} else {
+							
+							responseInfo.append(receiverService.getResponse());
+							responseInfo.append(":");
+							responseInfo.append(receiverService.getServerProperties().get("serverName").toString());
+							
+							dataOutputStream.writeUTF(responseInfo.toString());
+							dataOutputStream.flush();
+							
+						}
+						
+//						clientHandler = new ClientHandler(clientSocket);
+//						CLIENT_CONNECTION_ESTABLISHED = true;
+//						monitorClientStatus(clientHandler);
+//						clientHandler.setReceiveOnClientHandler(receiveOnClientHandler);
+						
+						receiverService.setRequest(ConfigConstant.NONE_RESPONSE);
+						CLIENT_CONNECTION_ESTABLISHED = false;
+						receiverService.getClientProperties().clear();
+						System.out.println("client ended");
+						
+					} catch (IOException e) {
+						e.printStackTrace();
+						CLIENT_CONNECTION_ESTABLISHED = false;
+					}
+				
+				} while(SERVER_RUNNING);
 				
 			});
-			execService.shutdown();
+			
+			clientRequestExec.shutdown();
+			
 		}
 		
-		if(clientHandler != null) {
-			if(!clientHandler.isActive()) {
-				CLIENT_CONNECTION_ESTABLISHED = false;
+	}
+	
+	
+	private synchronized void monitorClientStatus(ClientHandler clientHandler) {
+		
+		clientMonitoringExec = Executors.newSingleThreadExecutor();
+		clientMonitoringExec.execute( () -> {
+			
+			while(clientHandler.isActive()) {
+				
+				if(!CLIENT_CONNECTION_ESTABLISHED || !SERVER_RUNNING) {
+					break;
+				}
+				
+				try {
+					Thread.sleep(1500);
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
+								
 			}
-		}
+			
+			receiverService.setRequest(ConfigConstant.NONE_RESPONSE);
+			
+			clientHandler.closeClientConnection();
+			
+		});
+		
+		clientMonitoringExec.shutdown();
+	}
+	
+	
+	boolean isConnected() {
+		return (clientHandler != null ? clientHandler.isActive() : false);
 	}
 	
 	
 	
-	void closeConnection() {
+	synchronized void closeConnection() {
 		try {
-			
-			closeClientConnection();
 			
 			if(serverSocket != null) {
 				serverSocket.close();
 			}
 			
+			receiverService.setRequest(ConfigConstant.NONE_RESPONSE);
 			SERVER_RUNNING = false;
 			
 		} catch (IOException e) {
 			e.printStackTrace();
+			
+		} finally {
+			
+			closeClientConnection();
+			if(clientRequestExec != null) {
+				clientRequestExec.shutdownNow();
+			}
+			
+			if(clientMonitoringExec != null) {
+				clientMonitoringExec.shutdownNow();
+			}
+			
+			receiverService.setRequest(ConfigConstant.NONE_RESPONSE);
 			CLIENT_CONNECTION_ESTABLISHED = false;
 			SERVER_RUNNING = false;
+			
 		}
+		
 	}
 
 	
-	void closeClientConnection() {
+	synchronized void closeClientConnection() {
+		
 		if(clientHandler != null) {
 			clientHandler.closeClientConnection();
+			CLIENT_CONNECTION_ESTABLISHED = false;
+		}
+		
+		if(clientRequestExec != null) {
+			clientRequestExec.shutdownNow();
 		}
 	}
 	
@@ -137,68 +246,54 @@ class ReceiverNetwork {
 		
 		private final Socket clientSocket;
 		
+		private final DataInputStream dataInputStream;
+		private final DataOutputStream dataOutputStream;
+		private final BufferedInputStream bufferedInputStream;
 		private ReceiveOnClientHandler receiveOnClientHandler;
 		
 		
-		ClientHandler(Socket clientSocket) {
+		ClientHandler(Socket clientSocket) throws IOException {
 			this.clientSocket = clientSocket;
+			this.dataInputStream = new DataInputStream(clientSocket.getInputStream());
+			this.dataOutputStream = new DataOutputStream(clientSocket.getOutputStream());
+			this.bufferedInputStream = new BufferedInputStream(clientSocket.getInputStream());
 		}
 		
 		
 		void setReceiveOnClientHandler(ReceiveOnClientHandler receiveOnClientHandler) throws IOException {
 			this.receiveOnClientHandler = receiveOnClientHandler;
-			this.receiveOnClientHandler.setClientStreams(clientSocket.getInputStream(), clientSocket.getOutputStream());
-			this.receiveOnClientHandler.onRead(); // this should be in loop
+			this.receiveOnClientHandler.setClientStreams(dataInputStream, dataOutputStream, bufferedInputStream);
+			this.receiveOnClientHandler.onRead();
 		}
 		
 		
-		void receiveFilePropertiesFirst() {
-			
+		ReceiveOnClientHandler getReceiveOnClientHandler() {
+			return this.receiveOnClientHandler;
 		}
-		
-		
-//		void readFiles() throws IOException {
-//			
-//			String fileName = "(file)";
-//			StringBuilder receivingFolder = new StringBuilder();
-//			receivingFolder.append(System.getProperty("user.home"));
-//			receivingFolder.append(File.separator);
-//			receivingFolder.append("Desktop");
-//			receivingFolder.append(File.separator);
-//			receivingFolder.append("received");
-//			receivingFolder.append(File.separator);
-//			
-//			
-//			File toOutputfile = new File(receivingFolder.toString());
-//			
-//			try(FileOutputStream output = new FileOutputStream(toOutputfile);
-//					BufferedInputStream input = new BufferedInputStream(clientSocket.getInputStream(), GenericUtils.DEFAULT_BUFFER_SIZE)){
-//				
-//				long transferred = 0;
-//		        byte[] buffer = new byte[GenericUtils.DEFAULT_BUFFER_SIZE];
-//		        int read;
-//		        while ((read = input.read(buffer)) >= 0) {
-//		        	output.write(buffer, 0, read);
-//		            transferred += read;
-//		        }
-//		        
-//			} catch(IOException ioex) {
-//				throw new IOException(ioex);
-//			}
-//			
-//		}
 		
 		
 		boolean isActive() {
-			return clientSocket != null ? clientSocket.isClosed() : false;
+			return !this.clientSocket.isClosed();
 		}
 		
 		
-		void closeClientConnection() {
+		DataInputStream getDataInputStream() {
+			return this.dataInputStream;
+		}
+		
+		DataOutputStream getDataOutputStream() {
+			return this.dataOutputStream;
+		}
+		
+		BufferedInputStream getBufferedInputStream() {
+			return this.bufferedInputStream;
+		}
+		
+		synchronized void closeClientConnection() {
 			try {
 				
-				if(clientSocket != null) {
-					clientSocket.close();
+				if(this.clientSocket != null) {
+					this.clientSocket.close();
 				}
 				
 				CLIENT_CONNECTION_ESTABLISHED = false;

@@ -18,7 +18,9 @@ import javafx.stage.Stage;
 @Component
 public class StageInitializer implements ApplicationListener<StageReadyEvent>{
 	
+	private static final RootManager ROOT_MANAGER = new RootManager();
 	private static Scene scene;
+	
 	
 	private final String appTitle;
 	@Value("classpath:/fxml/home.fxml")
@@ -31,6 +33,8 @@ public class StageInitializer implements ApplicationListener<StageReadyEvent>{
 	private Resource connectionPropertiesDialog;
 	@Value("classpath:/fxml/manageConnection.fxml")
 	private Resource manageConnection;
+	@Value("classpath:/fxml/preferences.fxml")
+	private Resource preferences;
 	@Value("classpath:/fxml/generalUseBorderPane.fxml")
 	private Resource generalUseBorderPane;
 	
@@ -52,8 +56,8 @@ public class StageInitializer implements ApplicationListener<StageReadyEvent>{
 	
 	
 	private void setupStage(Stage stage) throws IOException {
-//		stage.setMinHeight(580);
-//    	stage.setMinWidth(700);
+		stage.setMinHeight(550);
+    	stage.setMinWidth(285);
         stage.setTitle(appTitle);
         
         RootManager rootManager = RootManager.getRootManager();
@@ -62,14 +66,19 @@ public class StageInitializer implements ApplicationListener<StageReadyEvent>{
         rootManager.registerResource(RootManager.FXML_RECEIVER, receiverResource);
         rootManager.registerResource(RootManager.FXML_CONNECTION_PROPERTIES_DIALOG, connectionPropertiesDialog);
         rootManager.registerResource(RootManager.FXML_MANAGE_CONNECTION, manageConnection);
+        rootManager.registerResource(RootManager.FXML_PREFERENCES, preferences);
         rootManager.registerResource(RootManager.FXML_GENERAL_USER_BORDERPANE, generalUseBorderPane);
         
         scene = new Scene(rootManager.loadFXML(homeResource));
+        rootManager.loadFXML(homeResource);
         stage.setScene(scene);
 //        stage.setFullScreen(true);
 //        stage.setMaximized(true);
         stage.show();
 	}
+	
+	
+	
 	
 	
 	public static class RootManager {
@@ -79,20 +88,20 @@ public class StageInitializer implements ApplicationListener<StageReadyEvent>{
 		public static final String FXML_RECEIVER = "receiver";
 		public static final String FXML_CONNECTION_PROPERTIES_DIALOG = "connectionPropertiesDialog";
 		public static final String FXML_MANAGE_CONNECTION = "manageConnection";
+		public static final String FXML_PREFERENCES = "preferences";
 		public static final String FXML_GENERAL_USER_BORDERPANE = "generalUseBorderPane";
 		
-		private static RootManager rootManager;
-		private static final LinkedHashMap<String, Resource> registeredResources = new LinkedHashMap<>(); 
+		private static final LinkedHashMap<String, Resource> registeredResources = new LinkedHashMap<>();
 		
-		private FXMLLoader fxmlLoader;
-		private Parent parent;
+		private static FXMLLoader fxmlLoader;
+		private static Parent parent;
 		
 		private RootManager() {
 			
 		}
 		
 		public static RootManager getRootManager() {
-			return rootManager != null ? rootManager : new RootManager(); 
+			return ROOT_MANAGER; 
 		}
 		
 		public void registerResource(String keyName, Resource resource) {

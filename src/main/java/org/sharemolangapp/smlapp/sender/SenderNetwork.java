@@ -1,11 +1,21 @@
 package org.sharemolangapp.smlapp.sender;
 
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.Properties;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 import org.sharemolangapp.smlapp.sender.SenderService.SendOnServerHandler;
+import org.sharemolangapp.smlapp.util.ConfigConstant;
+import org.sharemolangapp.smlapp.util.GenericUtils;
 
 
 
@@ -14,6 +24,7 @@ class SenderNetwork {
 
 	private final SenderService senderService;
 	private final SendOnServerHandler sendOnServerHandler;
+	private Future<Boolean> rqtServerAccpFuture;
 	private Socket socket;
 	
 	
@@ -23,78 +34,104 @@ class SenderNetwork {
 	}
 	
 	
-	boolean connectNow() throws NumberFormatException, UnknownHostException, IOException {
+	Boolean connectNow(boolean isTest) throws NumberFormatException, UnknownHostException, IOException, InterruptedException, ExecutionException {
 		Properties serverProperties = senderService.getServerProperties();
 		String host = serverProperties.get("host").toString().strip();
 		int port = Integer.parseInt(String.valueOf(serverProperties.get("port")).strip());
-		boolean isConnected = false;
+		Boolean isConnected = false;
 		
-		socket = new Socket(host, port);
+		socket = new Socket();
+		socket.connect(new InetSocketAddress(host, port), GenericUtils.CONNECTION_SO_TIMEOUT);
+		socket.setSoTimeout(GenericUtils.READ_SO_TIMEOUT * 4 + GenericUtils.READ_SO_TIMEOUT); // 2 minutes and 30 seconds
 		
-		isConnected = socket.isConnected();
+		isConnected = !socket.isClosed();
+		
 		if(isConnected) {
-			sendOnServerHandler.setStreams(socket.getInputStream(), socket.getOutputStream());
+			if(!isTest) {
+				isConnected = requestServerAcceptance(socket);
+			}
 		}
 		
 		return isConnected;
 	}
 	
 	
-//	void writeToSend(File file) throws FileNotFoundException, IOException {
-//		int read = 0;
-//		try(FileInputStream fileInputStream = new FileInputStream(file);
-//				BufferedOutputStream bufferedOutpuStream = new BufferedOutputStream(socket.getOutputStream())){
-//			
-//			byte[] buffer = new byte[GenericUtils.DEFAULT_BUFFER_SIZE];
-//			
-//			while((read = fileInputStream.read(buffer)) >= 0) {
-//				bufferedOutpuStream.write(buffer, 0, read);
-//			}
-//			
-//			bufferedOutpuStream.flush();
-//		}
-//		
-//	}
+	private Boolean requestServerAcceptance(final Socket socket) throws InterruptedException, ExecutionException {
+		
+		ExecutorService rqtServerAccpExecutor = Executors.newSingleThreadExecutor();
+		rqtServerAccpFuture = rqtServerAccpExecutor.submit( new Callable<Boolean>() {
+			
+			@Override
+			public Boolean call() throws Exception {
+				
+				Boolean isAccepted = false;
+				
+				try {
+					
+					StringBuilder initialCommunicationData = new StringBuilder();
+					initialCommunicationData.append(ConfigConstant.CLIENT_REQUESTING_RESPONSE);
+					initialCommunicationData.append(":");
+					initialCommunicationData.append(senderService.getYourName());
+
+					DataOutputStream dataOutputStream = new DataOutputStream(socket.getOutputStream());
+					dataOutputStream.writeUTF(initialCommunicationData.toString());
+					dataOutputStream.flush();
+					
+					DataInputStream dataInputStream = new DataInputStream(socket.getInputStream());
+					String serverResponse = dataInputStream.readUTF();
+					String []deconServerResponse = serverResponse.split(":");
+					String response = deconServerResponse[0];
+					String serverName = deconServerResponse[1];
+					
+					if(response.equals(ConfigConstant.OK_RESPONSE)) {
+						senderService.setServerAccepted(true);
+						sendOnServerHandler.setStreams(socket.getInputStream(), socket.getOutputStream());
+						senderService.getServerProperties().put("serverName", serverName);
+					} else {
+						senderService.setServerAccepted(false);
+						socket.close();
+						sendOnServerHandler.closeStream();
+					}
+					
+					isAccepted = senderService.isServerAccepted();
+					
+				} catch (IOException e) {
+					senderService.setServerAccepted(false);
+					e.printStackTrace();
+					isAccepted = null;
+				}
+				
+				return isAccepted;
+			}
+			
+		});
+		
+		Boolean isAccepted = rqtServerAccpFuture.get();
+		
+		rqtServerAccpExecutor.shutdown();
+		rqtServerAccpExecutor.shutdownNow();
+		
+		return isAccepted;
+	}
 	
 	
-	boolean testConnection() throws NumberFormatException, UnknownHostException, IOException {
-		boolean isConnected = connectNow();
+	boolean isActive() {
+		return !socket.isClosed();
+	}
+	
+	
+	boolean testConnection() throws NumberFormatException, UnknownHostException, IOException, InterruptedException, ExecutionException {
+		boolean isConnected = connectNow(true);
 		socket.close();
 		return isConnected;
 	}
 	
 	
-	
-//	// *** TEMPORARY LA INI
-//	void tmpServer() {
-//		new Thread( () -> {
-//			int port = NetworkUtility.freePort();
-//			System.out.println(port);
-//			ServerSocket ss = null;
-//			try {
-//				ss = new ServerSocket(port);
-//			} catch (IOException e) {
-//				e.printStackTrace();
-//			} finally {
-//				try {
-//					if(ss != null) {
-//						Socket client = ss.accept();
-//						System.out.println("Connected: "+client.isConnected());
-//						System.out.println(client.getInetAddress());
-//						ss.close();
-//					}
-//				} catch (IOException e) {
-//					e.printStackTrace();
-//				}
-//				
-//			}
-//		}).start();
-//	}
-	
-	
-	
-	void closeClientConnection() {
+	synchronized void closeClientConnection() {
 		try {
+			if(rqtServerAccpFuture != null) {
+				rqtServerAccpFuture.cancel(true);
+			}
 			if(socket != null) {
 				socket.close();
 			}
