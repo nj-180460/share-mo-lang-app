@@ -10,6 +10,7 @@
 <?import javafx.scene.layout.FlowPane?>
 <?import javafx.scene.layout.VBox?>
 
+
 <BorderPane xmlns="http://javafx.com/javafx/8.0.171" xmlns:fx="http://javafx.com/fxml/1" fx:controller="org.sharemolangapp.smlapp.sender.SenderController">
    <bottom>
       <VBox fx:id="bottomPane" BorderPane.alignment="CENTER">

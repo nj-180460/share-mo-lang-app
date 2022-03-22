@@ -230,15 +230,14 @@ class ReceiverService {
 						JSONFactory.Settings.OUTPUT_FOLDER_PNODE));
 			receivingFolder.append(fileName);
 			
-	        File receivingFile = new File(receivingFolder.toString());
-	        
-	        byte[] bytes = new byte[GenericUtils.DEFAULT_BUFFER_SIZE];
+	        File receivingFile = new File(receivingFolder.toString());	        
 
 	        try(FileOutputStream outputStream = new FileOutputStream(receivingFile)){
 
 		        receiverController.addMonitoringFile(receivingFile, fileSize);
 		        WorkMonitor workMonitor = receiverController.getWorkMonitor();
 	        	
+		        byte[] bytes = new byte[GenericUtils.DEFAULT_BUFFER_SIZE];
 	        	long workDone = 0;
 	            int count;
 	            while ((count = inputStream.read(bytes)) >= 0) {
