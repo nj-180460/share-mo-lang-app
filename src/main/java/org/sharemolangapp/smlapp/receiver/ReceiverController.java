@@ -62,7 +62,7 @@ public class ReceiverController implements Initializable{
 	private static final RootManager rootManager = RootManager.getRootManager();
 	private static boolean CLOSING_STAGE = false;
 	
-	private final ObservableList<ProgressIndicatorBar> obsReceivedListView = FXCollections.observableArrayList();
+	private final ObservableList<ProgressIndicatorBar> observableReceivedList = FXCollections.observableArrayList();
 	
 	private ReceiverService receiverService;
 	private WorkMonitor workMonitor;
@@ -84,7 +84,7 @@ public class ReceiverController implements Initializable{
 		receiverService = new ReceiverService(this);
 		initializeData();
 		
-		receivedListViewReceiver.setItems(obsReceivedListView);
+		receivedListViewReceiver.setItems(observableReceivedList);
 		handleListviewReceive(receivedListViewReceiver);
 		
 	}
@@ -329,14 +329,24 @@ public class ReceiverController implements Initializable{
 				
 				return new Task<Void>() {
 
+					private boolean isReadyMonitor = false;
+					
 					@Override
 					protected Void call() throws Exception {
 						
 						Platform.runLater( () -> {
 							withProgressBar = new ProgressIndicatorBar(workMonitor, Double.parseDouble(fileSize), file.getAbsolutePath());
-							obsReceivedListView.add(withProgressBar);
-							withProgressBar.startMonitoring();
+							observableReceivedList.add(withProgressBar);
+							isReadyMonitor = true;
 						});
+						// block when progress bar is not yet initialized and ready
+						while(!isReadyMonitor && !CLOSING_STAGE) {
+							Thread.sleep(250);
+						}
+						if(CLOSING_STAGE) {
+							return null;
+						}
+						withProgressBar.startMonitoring();
 						
 						return null;
 					}
@@ -528,9 +538,12 @@ public class ReceiverController implements Initializable{
 						oldValue = workDone;
 						worker.work();
 					}
-					
 				}
-				
+				if(!CLOSING_STAGE) {
+					oldValue = workDone;
+					workDone = totalWork;
+					worker.work();
+				}
 			});
 			
 			exeService.shutdown();

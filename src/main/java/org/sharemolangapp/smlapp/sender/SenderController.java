@@ -7,6 +7,7 @@ import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.ResourceBundle;
@@ -102,6 +103,7 @@ public class SenderController implements Initializable {
 		CLOSING_STAGE = false;
 		
 		senderService = new SenderService();
+//		FXCollections.observableList(null);
 		
 		// for queue list
 		observableListQueue.addAll(selectedFilesMap.keySet());
@@ -170,7 +172,10 @@ public class SenderController implements Initializable {
 				
 			});
 			
-			observableListQueue.addAll(selectedFiles.keySet().stream().toList());
+			selectedFiles.entrySet().stream()
+				.map(Map.Entry::getKey)
+				.forEach(observableListQueue::add);
+			
 		}
 		
 	}
@@ -258,8 +263,8 @@ public class SenderController implements Initializable {
 		
 		Platform.runLater( () -> {
 			
+			selectedQueueList.forEach(observableListQueue::remove);
 			selectedQueueList.clear();
-			observableListQueue.removeAll(selectedQueueList);
 			multiSelectionModel.clearSelection();
 			
 			toggleComponents(false);
@@ -343,8 +348,8 @@ public class SenderController implements Initializable {
 		
 		Platform.runLater( () -> {
 			
+			selectedQueueList.forEach(observableListQueue::remove);
 			selectedQueueList.clear();
-			observableListQueue.removeAll(selectedQueueList);
 			multiSelectionModel.clearSelection();
 			
 			toggleComponents(false);
@@ -364,7 +369,7 @@ public class SenderController implements Initializable {
 			dragEvent.acceptTransferModes(TransferMode.COPY);
 			ClipboardContent content = new ClipboardContent();
 			content.putFiles(dragBoard.getFiles());
-			dragEvent.consume();
+//			dragEvent.consume();
 		}
 	}
 	
@@ -380,9 +385,11 @@ public class SenderController implements Initializable {
 			LinkedHashMap<ProgressIndicatorBar, File> selectedFiles = new LinkedHashMap<>();
 			
 			if(dragBoard.hasFiles()) {
+				
 				files.addAll(dragBoard.getFiles());
 				
 				files.forEach( file -> {
+					
 					String absolutePath = file.getAbsolutePath();
 					WorkMonitor workDone = new WorkMonitor(file.length());
 					
@@ -399,21 +406,22 @@ public class SenderController implements Initializable {
 					
 				});
 				
-				observableListQueue.addAll(selectedFiles.keySet().stream().toList());
+				selectedFiles.entrySet().stream()
+					.map(Map.Entry::getKey)
+					.forEach(observableListQueue::add);
+				
 			}
 			
-		
 		} else {
 			
-			Alert alertOn = new Alert(AlertType.NONE);
+			Alert alertOn = new Alert(AlertType.INFORMATION);
 			alertOn.setHeaderText("To whom should you send this nonsense?");
         	alertOn.setContentText("You are not connected to a receiver yet.");
-        	alertOn.setAlertType(AlertType.ERROR);
     		alertOn.show();
 		}
 		
 		dragEvent.setDropCompleted(true);
-		dragEvent.consume();
+//		dragEvent.consume();
 	}
 	
 	
@@ -443,7 +451,6 @@ public class SenderController implements Initializable {
 		
 		Alert alertOnTest = new Alert(AlertType.NONE);
 		ExceptionExpandedUI expandableUI = new ExceptionExpandedUI(alertOnTest);
-		
 		
 		testConnectionButton.setText("Test Connection");
 		testConnectionButton.setOnAction( (eventHandler) -> {
