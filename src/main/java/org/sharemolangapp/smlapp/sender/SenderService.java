@@ -164,7 +164,7 @@ class SenderService {
 	            if(serverResponse.equals(ConfigConstant.OK_RESPONSE)){
 	                writeToSend(workMonitor, fileInputStream);
 	            } else if(serverResponse.equals(ConfigConstant.FILENAME_EMPTY_RESPONSE)){
-	            	System.out.println(getClass().getName() +" LINE 147: Server response = " + serverResponse);
+	            	System.out.println(getClass().getName() +" LINE 167: Server response = " + serverResponse);
 	            }
 	        }
 			
@@ -182,6 +182,12 @@ class SenderService {
 	        	bufferedOutputStream.write(buffer, 0, read);
 	            transferred += read;
 	            workMonitor.setWorkDone(transferred);
+	            
+	            if(read < GenericUtils.DEFAULT_BUFFER_SIZE) {
+	            	break;
+	            }
+	            
+	            dataInputStream.readUTF(); // ConfigConstant.RECEIVED_BYTES_RESPONSE
 	        }
 	        bufferedOutputStream.flush();
 		}

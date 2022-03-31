@@ -17,6 +17,7 @@ public abstract class ConfigConstant {
 	public static final String NONE_RESPONSE = "NONE";
 	public static final String FILENAME_EMPTY_RESPONSE = "FILENAME_EMPTY";
 	public static final String CONNECTION_LOST_RESPONSE = "CONNECTION_LOST";
+	public static final String RECEIVED_BYTES_RESPONSE = "RECEIVED_BYTES";
 	
 	// json files
 	public static final String PREFERENCES_JSON_FILE = "preferences.json";
