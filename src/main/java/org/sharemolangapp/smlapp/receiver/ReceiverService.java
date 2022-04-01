@@ -251,6 +251,7 @@ class ReceiverService {
 	                    break;
 	                }
 	                
+	                dataOutputStream.writeUTF(ConfigConstant.RECEIVED_BYTES_RESPONSE);
 	            }
 	            
 	            workMonitor.setWorkDone(workMonitor.getTotalWork());
